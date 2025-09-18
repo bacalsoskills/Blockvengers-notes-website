@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --bg: #0f172a; /* slate-900 */
+        --panel: #111827; /* gray-900 */
+        --muted: #94a3b8; /* slate-400 */
+        --text: #e5e7eb; /* gray-200 */
+        --accent: #38bdf8; /* sky-400 */
+        --card-yellow: #fff9c4;
+        --card-pink: #ffe4e6;
+        --card-blue: #e0f2fe;
+        --card-green: #dcfce7;
+        --shadow: 0 10px 20px rgba(0,0,0,0.25);
+      }
+
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        background: linear-gradient(180deg, #0b1220, var(--bg));
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 16px 20px 48px;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px 0 10px;
+        position: sticky;
+        top: 0;
+        background: linear-gradient(180deg, rgba(11,18,32,0.95), rgba(15,23,42,0.6), rgba(15,23,42,0));
+        backdrop-filter: saturate(1.2) blur(4px);
+        z-index: 10;
+      }
+
+      .logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+      }
+      .logo-mark {
+        width: 36px; height: 36px;
+        border-radius: 10px;
+        background: radial-gradient(120% 120% at 10% 10%, #67e8f9, #38bdf8 35%, #2563eb 80%);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 8px 20px rgba(56,189,248,0.35);
+      }
+      .logo-title { font-size: 20px; }
+
+      .actions { display: flex; gap: 10px; align-items: center; }
+      .action-btn {
+        padding: 8px 12px;
+        border: 1px solid rgba(148,163,184,0.25);
+        background: rgba(17,24,39,0.6);
+        color: var(--text);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: 0.2s ease;
+      }
+      .action-btn:hover { border-color: rgba(148,163,184,0.5); background: rgba(17,24,39,0.85); }
+
+      .input-card {
+        background: rgba(17,24,39,0.6);
+        border: 1px solid rgba(148,163,184,0.25);
+        border-radius: 16px;
+        padding: 16px;
+        margin-top: 8px;
+        box-shadow: var(--shadow);
+      }
+      .row { display: flex; gap: 12px; flex-wrap: wrap; }
+      .row > * { flex: 1 1 200px; }
+      input[type="text"], textarea {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid rgba(148,163,184,0.35);
+        background: rgba(2,6,23,0.6);
+        color: var(--text);
+        outline: none;
+        transition: 0.2s ease;
+      }
+      input[type="text"]:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56,189,248,0.2); }
+      textarea { min-height: 110px; resize: vertical; }
+
+      .save-btn {
+        padding: 12px 16px;
+        background: linear-gradient(180deg, #38bdf8, #0ea5e9);
+        color: #06243a;
+        font-weight: 700;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        box-shadow: 0 8px 18px rgba(56,189,248,0.35);
+        transition: transform 0.06s ease, box-shadow 0.2s ease;
+      }
+      .save-btn:hover { box-shadow: 0 10px 24px rgba(56,189,248,0.45); }
+      .save-btn:active { transform: translateY(1px); }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 16px;
+        margin-top: 18px;
+        align-items: start;
+      }
+
+      .note {
+        position: relative;
+        padding: 14px 14px 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(30,41,59,0.3);
+        box-shadow: var(--shadow);
+        background: #fffef2;
+        transform: rotate(var(--r, 0deg));
+      }
+      .note[data-color="yellow"] { background: var(--card-yellow); }
+      .note[data-color="pink"]   { background: var(--card-pink); }
+      .note[data-color="blue"]   { background: var(--card-blue); }
+      .note[data-color="green"]  { background: var(--card-green); }
+
+      .note h3 { margin: 0 0 6px; color: #111827; font-size: 16px; }
+      .note p  { margin: 0; color: #111827; white-space: pre-wrap; }
+      .note .meta { display:flex; justify-content: space-between; align-items: center; margin-top: 10px; color:#334155; font-size: 12px; }
+      .note .buttons { display: flex; gap: 8px; }
+      .icon-btn {
+        border: none;
+        background: rgba(255,255,255,0.7);
+        color: #0f172a;
+        border-radius: 8px;
+        padding: 6px 8px;
+        cursor: pointer;
+      }
+      .icon-btn:hover { background: white; }
+
+      .empty {
+        text-align: center;
+        color: var(--muted);
+        padding: 28px 8px;
+        border: 1px dashed rgba(148,163,184,0.3);
+        border-radius: 14px;
+        background: rgba(17,24,39,0.35);
+      }
+
+      @media (max-width: 520px) {
+        .logo-title { font-size: 18px; }
+        .row { gap: 10px; }
+        .grid { gap: 12px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="logo">
+          <div class="logo-mark"></div>
+          <div class="logo-title">Notes</div>
+        </div>
+        <div class="actions">
+          <button class="action-btn" id="exportBtn">Export</button>
+          <button class="action-btn" id="importBtn">Import</button>
+          <input type="file" id="importFile" accept="application/json" style="display:none" />
+        </div>
+      </header>
+
+      <div class="input-card">
+        <div class="row" style="margin-bottom:10px">
+          <input id="titleInput" type="text" placeholder="Note title" />
+          <select id="colorInput" style="max-width:160px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(148,163,184,0.35); background: rgba(2,6,23,0.6); color: var(--text);">
+            <option value="yellow">Yellow</option>
+            <option value="pink">Pink</option>
+            <option value="blue">Blue</option>
+            <option value="green">Green</option>
+          </select>
+        </div>
+        <textarea id="bodyInput" placeholder="Write your note..."></textarea>
+        <div style="display:flex; justify-content:flex-end; margin-top: 12px;">
+          <button class="save-btn" id="saveBtn">Save note</button>
+        </div>
+      </div>
+
+      <div id="app"></div>
+    </div>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+      const { useEffect, useMemo, useRef, useState } = React;
+
+      function useLocalStorage(key, initialValue) {
+        const [value, setValue] = useState(() => {
+          try {
+            const raw = localStorage.getItem(key);
+            return raw ? JSON.parse(raw) : initialValue;
+          } catch {
+            return initialValue;
+          }
+        });
+        useEffect(() => {
+          try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+        }, [key, value]);
+        return [value, setValue];
+      }
+
+      function NoteCard({ note, onEdit, onDelete }) {
+        const rotation = useMemo(() => `${(Math.random() * 2 - 1.2).toFixed(2)}deg`, []);
+        return (
+          <div className="note" data-color={note.color} style={{"--r": rotation}}>
+            <h3>{note.title || "Untitled"}</h3>
+            <p>{note.body}</p>
+            <div className="meta">
+              <span>{new Date(note.updatedAt).toLocaleString()}</span>
+              <div className="buttons">
+                <button className="icon-btn" onClick={() => onEdit(note)}>Edit</button>
+                <button className="icon-btn" onClick={() => onDelete(note.id)}>Delete</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      function Grid({ notes, onEdit, onDelete }) {
+        if (!notes.length) {
+          return <div className="empty">No notes yet. Add your first note above.</div>;
+        }
+        return (
+          <div className="grid">
+            {notes.map(n => (
+              <NoteCard key={n.id} note={n} onEdit={onEdit} onDelete={onDelete} />
+            ))}
+          </div>
+        );
+      }
+
+      function App() {
+        const [notes, setNotes] = useLocalStorage("notes", []);
+        const [editing, setEditing] = useState(null);
+
+        const titleRef = useRef(null);
+        const bodyRef = useRef(null);
+        const colorRef = useRef(null);
+
+        useEffect(() => {
+          const t = document.getElementById("titleInput");
+          const b = document.getElementById("bodyInput");
+          const c = document.getElementById("colorInput");
+          titleRef.current = t; bodyRef.current = b; colorRef.current = c;
+
+          const save = () => {
+            const title = t.value.trim();
+            const body = b.value.trim();
+            const color = c.value;
+            if (!body && !title) return;
+            if (editing) {
+              setNotes(prev => prev.map(n => n.id === editing.id ? { ...n, title, body, color, updatedAt: Date.now() } : n));
+              setEditing(null);
+            } else {
+              const newNote = { id: crypto.randomUUID(), title, body, color, createdAt: Date.now(), updatedAt: Date.now() };
+              setNotes(prev => [newNote, ...prev]);
+            }
+            t.value = ""; b.value = ""; c.value = "yellow";
+          };
+
+          document.getElementById("saveBtn").addEventListener("click", save);
+          const exportBtn = document.getElementById("exportBtn");
+          const importBtn = document.getElementById("importBtn");
+          const importFile = document.getElementById("importFile");
+          exportBtn.addEventListener("click", () => {
+            const blob = new Blob([JSON.stringify(notes, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url; a.download = `notes-${new Date().toISOString().slice(0,10)}.json`;
+            a.click(); URL.revokeObjectURL(url);
+          });
+          importBtn.addEventListener("click", () => importFile.click());
+          importFile.addEventListener("change", async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            try {
+              const text = await file.text();
+              const data = JSON.parse(text);
+              if (Array.isArray(data)) {
+                setNotes(data.map(n => ({...n, id: n.id || crypto.randomUUID()})));
+              }
+            } catch {}
+            finally { e.target.value = ""; }
+          });
+
+          return () => {
+            document.getElementById("saveBtn").removeEventListener("click", save);
+          };
+        }, [editing, setNotes, notes]);
+
+        const handleEdit = (note) => {
+          setEditing(note);
+          if (titleRef.current) titleRef.current.value = note.title || "";
+          if (bodyRef.current) bodyRef.current.value = note.body || "";
+          if (colorRef.current) colorRef.current.value = note.color || "yellow";
+          titleRef.current?.focus();
+        };
+
+        const handleDelete = (id) => {
+          setNotes(prev => prev.filter(n => n.id !== id));
+          if (editing?.id === id) setEditing(null);
+        };
+
+        const sorted = useMemo(() => {
+          return [...notes].sort((a,b) => b.updatedAt - a.updatedAt);
+        }, [notes]);
+
+        return (
+          <Grid notes={sorted} onEdit={handleEdit} onDelete={handleDelete} />
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById("app"));
+      root.render(<App />);
+    </script>
+  </body>
+  </html>
+
+
