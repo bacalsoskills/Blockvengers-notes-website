@@ -24,6 +24,41 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+// Create a new note
+router.post("/", async (req, res) => {
+  try {
+    const { title, content, color } = req.body || {};
+
+    const allowedColors = new Set(["yellow", "pink", "blue", "green"]);
+
+    if ((title == null || String(title).trim() === "") && (content == null || String(content).trim() === "")) {
+      return res.status(400).json({ message: "Title or content is required" });
+    }
+
+    const normalizedTitle = title != null ? String(title).trim() : null;
+    const normalizedContent = content != null ? String(content).trim() : null;
+    const normalizedColor = allowedColors.has(color) ? color : "yellow";
+
+    const [result] = await pool.query(
+      "INSERT INTO notes (title, content, color) VALUES (?, ?, ?)",
+      [normalizedTitle, normalizedContent, normalizedColor]
+    );
+
+    const [rows] = await pool.query("SELECT * FROM notes WHERE id = ?", [result.insertId]);
+    const created = rows && rows[0] ? rows[0] : {
+      id: result.insertId,
+      title: normalizedTitle,
+      content: normalizedContent,
+      color: normalizedColor,
+      updatedAt: new Date()
+    };
+
+    res.status(201).json(created);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // Update existing note
 router.put("/:id", async (req, res) => {
