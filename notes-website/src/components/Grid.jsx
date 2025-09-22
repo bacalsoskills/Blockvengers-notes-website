@@ -9,7 +9,12 @@ export default function Grid({ notes, onEdit, onDelete }) {
   return (
     <div className="grid">
       {notes.map(note => (
-        <NoteCard key={note.id} note={note} onEdit={onEdit} onDelete={onDelete} />
+        <NoteCard
+          key={note.id}
+          note={note}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
       ))}
     </div>
   );
