@@ -61,6 +61,13 @@ export default function App() {
     titleRef.current.focus();
   };
 
+  const handleCancel = () => {
+    setEditing(null);
+    titleRef.current.value = "";
+    bodyRef.current.value = "";
+    colorRef.current.value = "yellow";
+  };
+
   const handleDelete = async (id) => {
     await fetch(`${API_URL}/${id}`, { method: "DELETE" });
     setNotes(prev => prev.filter(n => n.id !== id));
@@ -91,8 +98,19 @@ export default function App() {
           </select>
         </div>
         <textarea ref={bodyRef} placeholder="Write your note..."></textarea>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "12px" }}>
-          <button className="save-btn" onClick={handleSave}>Save note</button>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px" }}>
+          {editing && (
+            <button 
+              className="save-btn" 
+              style={{ background: "#6b7280", color: "white" }} 
+              onClick={handleCancel}
+            >
+              Cancel
+            </button>
+          )}
+          <button className="save-btn" onClick={handleSave}>
+            {editing ? "Update" : "Save note"}
+          </button>
         </div>
       </div>
 
