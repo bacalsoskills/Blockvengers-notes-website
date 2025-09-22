@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 
+
 export default function NoteCard({ note, onEdit, onDelete }) {
   const rotation = useMemo(() => `${(Math.random() * 2 - 1.2).toFixed(2)}deg`, []);
 
