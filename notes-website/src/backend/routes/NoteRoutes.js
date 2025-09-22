@@ -24,6 +24,32 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+
+// Update existing note
+router.put("/:id", async (req, res) => {
+  try {
+    const { title, content, color } = req.body;
+    
+    // Update note in database
+    await pool.query(
+      "UPDATE notes SET title = ?, content = ?, color = ?, updatedAt = NOW() WHERE id = ?",
+      [title, content, color, req.params.id]
+    );
+    
+    // Return updated note data
+    res.json({ 
+      id: req.params.id, 
+      title, 
+      content, 
+      color, 
+      updatedAt: new Date() 
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+ 
+
 router.delete("/:id", async (req, res) => {
   try {
     await pool.query("DELETE FROM notes WHERE id=?", [req.params.id]);

@@ -4,8 +4,11 @@ const pool = mysql.createPool({
   host: "127.0.0.1",     
   port: 3306,            
   user: "root",
-  password: "De@thless1",
-  database: "notesdb"
+  password: "1234",
+  database: "notes_app",
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
 export default pool;
