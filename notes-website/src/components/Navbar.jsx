@@ -1,4 +1,5 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 
 function getSession() {
   try {
@@ -19,24 +20,54 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="navbar">
+    <motion.nav 
+      className="navbar"
+      initial={{ y: -100, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+    >
       <div className="nav-inner container">
-        <Link to="/" className="brand">Notes</Link>
+        <motion.div
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <Link to="/" className="brand">Notes</Link>
+        </motion.div>
         <div className="links">
-          <NavLink to="/" end>Home</NavLink>
-          <NavLink to="/notes">Notes</NavLink>
-          {session && <NavLink to="/profile">Profile</NavLink>}
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <NavLink to="/" end>Home</NavLink>
+          </motion.div>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <NavLink to="/notes">Notes</NavLink>
+          </motion.div>
+          {session && (
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <NavLink to="/profile">Profile</NavLink>
+            </motion.div>
+          )}
           {session ? (
-            <button className="link-btn" onClick={handleLogout}>Logout</button>
+            <motion.button
+              className="link-btn" 
+              onClick={handleLogout}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            >
+              Logout
+            </motion.button>
           ) : (
             <>
-              <NavLink to="/login">Login</NavLink>
-              <NavLink to="/register">Register</NavLink>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <NavLink to="/login">Login</NavLink>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <NavLink to="/register">Register</NavLink>
+              </motion.div>
             </>
           )}
         </div>
       </div>
-    </nav>
+    </motion.nav>
   )
 }
 
