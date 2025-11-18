@@ -8,6 +8,7 @@ export default function NoteCard({
   onTogglePin, 
   onToggleFavorite,
   onRestore,
+  onView,
   isTrash = false
 }) {
   const formatDate = (timestamp) => {
@@ -153,6 +154,23 @@ export default function NoteCard({
       >
         <span className="note-date">{formatDate(note.updatedAt || note.deletedAt)}</span>
         <div className="note-actions">
+          {!isTrash && onView && (
+            <motion.button
+              className="icon-btn-small view-btn"
+              onClick={(e) => {
+                e.stopPropagation()
+                onView(note)
+              }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              title="View"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </motion.button>
+          )}
           {isTrash && onRestore && (
             <motion.button
               className="icon-btn-small restore-btn"

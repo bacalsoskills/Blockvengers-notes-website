@@ -5,6 +5,7 @@ import NoteForm from '../components/NoteForm.jsx'
 import NoteCard from '../components/NoteCard.jsx'
 import Sidebar from '../components/Sidebar.jsx'
 import ThemeToggle from '../components/ThemeToggle.jsx'
+import ViewNoteModal from '../components/ViewNoteModal.jsx'
 
 function getSession() {
   try { return JSON.parse(localStorage.getItem('session')) } catch { return null }
@@ -39,6 +40,7 @@ export default function NotesDashboard() {
   const [activeFilter, setActiveFilter] = useState('all') // all, favorites, pinned, trash
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [viewingNote, setViewingNote] = useState(null)
 
   useEffect(() => {
     if (!userEmail) navigate('/login')
@@ -338,6 +340,7 @@ export default function NotesDashboard() {
                     setEditing(n)
                     setShowForm(true)
                   }}
+                  onView={(n) => setViewingNote(n)}
                   onDelete={activeFilter === 'trash' ? onPermanentDelete : onDelete}
                   onTogglePin={onTogglePin}
                   onToggleFavorite={onToggleFavorite}
@@ -348,6 +351,21 @@ export default function NotesDashboard() {
             </AnimatePresence>
           </motion.div>
         )}
+
+        {/* View Note Modal */}
+        <ViewNoteModal
+          note={viewingNote}
+          isOpen={!!viewingNote}
+          onClose={() => setViewingNote(null)}
+          onEdit={(n) => {
+            setViewingNote(null)
+            setEditing(n)
+            setShowForm(true)
+          }}
+          onDelete={activeFilter === 'trash' ? onPermanentDelete : onDelete}
+          onTogglePin={onTogglePin}
+          onToggleFavorite={onToggleFavorite}
+        />
 
       </motion.div>
         </div>
