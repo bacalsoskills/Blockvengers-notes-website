@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 
 function getSession() {
@@ -15,56 +14,63 @@ export default function Home() {
 
   return (
     <motion.section
-      className="page home"
+      className="page home centered-hero"
+      role="main"
+      aria-label="Home"
+      style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', paddingTop: 28, paddingBottom: 28, minHeight: 'auto' }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.45 }}
     >
-      <div className="container home-hero">
-        <motion.div
-          className="hero-left"
-          initial={{ opacity: 0, x: -12 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.08 }}
+      <div className="hero-content">
+        <motion.h1
+          initial={{ opacity: 0, y: -18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08, type: 'spring', stiffness: 200, damping: 18 }}
         >
-          <h1 className="logo-title">
-            {session ? `Welcome back${session.email ? `, ${session.email}` : ''}` : 'Notes — your ideas, organized'}
-          </h1>
+          {session ? `Welcome back${session.email ? `, ${session.email}` : ''}` : 'Welcome to Notes'}
+        </motion.h1>
 
-          <motion.p
-            className="muted"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-          >
-            {session
-              ? 'Organize, create, and access your notes seamlessly. Notes are securely saved both on the Cardano blockchain and in our database for maximum reliability.'
-              : 'A fast, simple notebook backed by Cardano and our database for secure, persistent storage. Sign up to save and sync your notes across devices.'}
-          </motion.p>
-        </motion.div>
-      </div>
+        <motion.p
+          className="hero-sub"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.16 }}
+        >
+          {session
+            ? 'Your personal notes are ready — quick, private, and reliable.'
+            : 'A simple, personal notebook inside your browser. Capture ideas quickly and find them later.'}
+        </motion.p>
 
-      <div className="container home-features">
-        <motion.div className="feature" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <div className="icon">📝</div>
-          <h3>Organize</h3>
-          <p className="muted">Tags and quick search make finding notes easy.</p>
+        <motion.div
+          className="home-features"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.26 }}
+        >
+          <div className="feature input-card" aria-hidden="true">
+            <div className="icon">📝</div>
+            <h4>Fast capture</h4>
+            <p className="muted">Save notes instantly without any delay.</p>
+          </div>
+
+          <div className="feature input-card" aria-hidden="true">
+            <div className="icon">🔒</div>
+            <h4>Local-first</h4>
+            <p className="muted">Your notes are safely stored in the database.</p>
+          </div>
+
+          <div className="feature input-card" aria-hidden="true">
+            <div className="icon">⚡</div>
+            <h4>Responsive</h4>
+            <p className="muted">Always works smoothly when you need it.</p>
+          </div>
         </motion.div>
 
-        <motion.div className="feature" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}>
-          <div className="icon">⚡</div>
-          <h3>Fast</h3>
-          <p className="muted">Minimal interface focused on speed and clarity.</p>
-        </motion.div>
-
-        <motion.div className="feature" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>
-          <div className="icon">🔒</div>
-          <h3>Persistent</h3>
-          <p className="muted">Notes are stored securely on Cardano and in our database for reliability.</p>
-        </motion.div>
+        <motion.p className="muted" style={{ marginTop: 16 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.36 }}>
+          {session ? 'Browse your notes from the Notes menu above.' : 'Use the navigation to Login or Register.'}
+        </motion.p>
       </div>
     </motion.section>
   )
 }
-
-
