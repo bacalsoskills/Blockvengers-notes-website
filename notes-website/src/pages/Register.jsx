@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 
 function getUsers() {
   try { return JSON.parse(localStorage.getItem('users') || '[]') } catch { return [] }
@@ -26,16 +27,77 @@ export default function Register() {
   }
 
   return (
-    <section className="page auth">
-      <h2>Register</h2>
-      <form onSubmit={handleRegister} className="auth-form">
-        <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-        {error && <div className="error">{error}</div>}
-        <button type="submit" className="primary">Create Account</button>
-      </form>
-      <p className="muted">Already have an account? <Link to="/login">Login</Link></p>
-    </section>
+    <motion.section 
+      className="page auth"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
+      <motion.h2
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        Create Account
+      </motion.h2>
+      <motion.form 
+        onSubmit={handleRegister} 
+        className="auth-form"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <motion.input
+          type="email" 
+          placeholder="Email" 
+          value={email} 
+          onChange={(e) => setEmail(e.target.value)} 
+          required
+          whileFocus={{ scale: 1.02 }}
+          transition={{ type: "spring", stiffness: 300 }}
+        />
+        <motion.input
+          type="password" 
+          placeholder="Password" 
+          value={password} 
+          onChange={(e) => setPassword(e.target.value)} 
+          required
+          whileFocus={{ scale: 1.02 }}
+          transition={{ type: "spring", stiffness: 300 }}
+        />
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              className="error"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              {error}
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <motion.button
+          type="submit" 
+          className="primary"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          transition={{ type: "spring", stiffness: 400, damping: 17 }}
+        >
+          Create Account
+        </motion.button>
+      </motion.form>
+      <motion.p
+        className="muted"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+        style={{ textAlign: 'center', marginTop: '24px' }}
+      >
+        Already have an account? <Link to="/login">Login</Link>
+      </motion.p>
+    </motion.section>
   )
 }
 
