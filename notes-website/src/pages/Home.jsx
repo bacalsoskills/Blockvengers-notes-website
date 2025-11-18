@@ -14,89 +14,55 @@ export default function Home() {
   const session = getSession()
 
   return (
-    <motion.section 
+    <motion.section
       className="page home"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.45 }}
     >
-      {session ? (
-        <>
-          <motion.h1
-            initial={{ opacity: 0, y: -30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, type: "spring", stiffness: 200, damping: 20 }}
-          >
-            Welcome back{session.email ? `, ${session.email}` : ''}
-          </motion.h1>
+      <div className="container home-hero">
+        <motion.div
+          className="hero-left"
+          initial={{ opacity: 0, x: -12 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.08 }}
+        >
+          <h1 className="logo-title">
+            {session ? `Welcome back${session.email ? `, ${session.email}` : ''}` : 'Notes — your ideas, organized'}
+          </h1>
+
           <motion.p
-            initial={{ opacity: 0, y: 20 }}
+            className="muted"
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, type: "spring", stiffness: 200, damping: 20 }}
+            transition={{ delay: 0.15 }}
           >
-            Continue to your notes or check your profile.
+            {session
+              ? 'Organize, create, and access your notes seamlessly. Notes are securely saved both on the Cardano blockchain and in our database for maximum reliability.'
+              : 'A fast, simple notebook backed by Cardano and our database for secure, persistent storage. Sign up to save and sync your notes across devices.'}
           </motion.p>
-          <motion.div 
-            className="cta"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            >
-              <Link className="btn primary" to="/notes">View Notes</Link>
-            </motion.div>
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            >
-              <Link className="btn outline" to="/profile">Profile</Link>
-            </motion.div>
-          </motion.div>
-        </>
-      ) : (
-        <>
-          <motion.h1
-            initial={{ opacity: 0, y: -30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, type: "spring", stiffness: 200, damping: 20 }}
-          >
-            Welcome to Notes
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, type: "spring", stiffness: 200, damping: 20 }}
-          >
-            A simple, personal, and fast notebook in your browser. Organize your thoughts with style.
-          </motion.p>
-          <motion.div 
-            className="cta"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            >
-              <Link className="btn primary" to="/login">Login</Link>
-            </motion.div>
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            >
-              <Link className="btn outline" to="/register">Register</Link>
-            </motion.div>
-          </motion.div>
-        </>
-      )}
+        </motion.div>
+      </div>
+
+      <div className="container home-features">
+        <motion.div className="feature" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <div className="icon">📝</div>
+          <h3>Organize</h3>
+          <p className="muted">Tags and quick search make finding notes easy.</p>
+        </motion.div>
+
+        <motion.div className="feature" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}>
+          <div className="icon">⚡</div>
+          <h3>Fast</h3>
+          <p className="muted">Minimal interface focused on speed and clarity.</p>
+        </motion.div>
+
+        <motion.div className="feature" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>
+          <div className="icon">🔒</div>
+          <h3>Persistent</h3>
+          <p className="muted">Notes are stored securely on Cardano and in our database for reliability.</p>
+        </motion.div>
+      </div>
     </motion.section>
   )
 }

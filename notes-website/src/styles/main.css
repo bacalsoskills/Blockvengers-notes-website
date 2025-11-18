@@ -782,6 +782,91 @@ button {
   flex-wrap: wrap;
 }
 
+/* Home specific layout */
+.home-hero {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  padding: 24px 0;
+}
+
+.hero-left {
+  flex: 1;
+}
+
+.hero-right {
+  flex: 1;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-illustration .sample-note {
+  width: 320px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid rgba(255,255,255,0.04);
+  box-shadow: var(--shadow-md);
+}
+
+.sample-note .note-title {
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.note-line {
+  height: 10px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 6px;
+  margin: 8px 0;
+}
+
+.note-line.short { width: 60%; }
+
+.home-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+/* Reduce container vertical padding on home to keep content within viewport */
+.page.home .container {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  gap: 12px;
+}
+
+.feature {
+  background: var(--panel);
+  padding: 20px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.feature .icon {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 768px) {
+  .home-hero { flex-direction: column; padding: 28px 0; }
+  .home-features { grid-template-columns: 1fr; }
+}
+
+/* simple decorative blob used on home hero */
+.illustration-blob {
+  width: 320px;
+  height: 220px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(96,165,250,0.06));
+  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(255,255,255,0.03);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .container {
@@ -1312,7 +1397,7 @@ button {
 
 .icon-btn-small:hover {
   background: white;
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
 
@@ -1396,7 +1481,7 @@ button {
   justify-content: space-between;
   align-items: center;
   margin-top: auto;
-  padding-top: 12px;
+  padding-top: 16px;
   border-top: 1px solid rgba(0, 0, 0, 0.15);
 }
 
@@ -1408,7 +1493,9 @@ button {
 
 .note-actions {
   display: flex;
-  gap: 4px;
+  gap: 8px;
+  margin-top: -6px;
+  align-items: center;
 }
 
 /* Notes Grid */
@@ -1451,6 +1538,24 @@ button {
   right: 32px;
   width: 64px;
   height: 64px;
+.icon-btn-small {
+  border: none;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  color: #0f172a;
+  border-radius: 8px;
+  padding: 5px;
+  min-width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 12px;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
   border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   border: none;
