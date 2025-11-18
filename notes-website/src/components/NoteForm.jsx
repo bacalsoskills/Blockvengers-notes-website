@@ -25,7 +25,7 @@ export default function NoteForm({ initial, onSave, onCancel }) {
     if (!title.trim() && !body.trim()) return
     onSave({ 
       title: title.trim(), 
-      body: body.trim(), 
+      content: body.trim(), 
       color,
       category,
       tags: tags.filter(t => t.trim())
