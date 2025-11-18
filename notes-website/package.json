@@ -5,12 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "backend": "node src/backend/server.js",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@blockfrost/blockfrost-js": "^6.0.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "framer-motion": "^12.23.24",

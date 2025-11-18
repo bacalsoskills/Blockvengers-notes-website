@@ -40,6 +40,9 @@ export default function Navbar() {
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <NavLink to="/notes">Notes</NavLink>
           </motion.div>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <NavLink to="/blockchain">Blockchain</NavLink>
+          </motion.div>
           {session && (
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <NavLink to="/profile">Profile</NavLink>

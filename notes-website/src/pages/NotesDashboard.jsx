@@ -33,62 +33,54 @@ export default function NotesDashboard() {
   }, [userEmail, navigate])
 
   // ================================
-  // LOAD NOTES FROM BACKEND
+  // LOAD NOTES FROM LOCALSTORAGE
   // ================================
   useEffect(() => {
-    async function fetchNotes() {
-      try {
-        const res = await fetch('http://localhost:5000/api/notes')
-        const data = await res.json()
-
-        // Attach front-end only fields (pinned, favorite, etc.)
-        const enriched = data.map(n => ({
-          id: n.id,
-          title: n.title,
-          content: n.content,
-          color: n.color,
-          updatedAt: n.updatedAt || Date.now(),
-          pinned: false,
-          favorite: false,
-          category: 'Personal',
-          tags: []
-        }))
-
-        setNotes(enriched)
-      } catch (err) {
-        console.error('Error loading notes:', err)
+    // Load notes from localStorage instead of backend for now
+    try {
+      const savedNotes = localStorage.getItem('notes')
+      const savedTrash = localStorage.getItem('trash')
+      if (savedNotes) {
+        setNotes(JSON.parse(savedNotes))
       }
+      if (savedTrash) {
+        setTrash(JSON.parse(savedTrash))
+      }
+    } catch (err) {
+      console.error('Error loading notes from localStorage:', err)
     }
-
-    fetchNotes()
   }, [])
 
+  // Save notes to localStorage whenever notes change
+  useEffect(() => {
+    try {
+      localStorage.setItem('notes', JSON.stringify(notes))
+    } catch (err) {
+      console.error('Error saving notes to localStorage:', err)
+    }
+  }, [notes])
+
+  // Save trash to localStorage whenever trash changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('trash', JSON.stringify(trash))
+    } catch (err) {
+      console.error('Error saving trash to localStorage:', err)
+    }
+  }, [trash])
+
   // ===================================
-  // CREATE NOTE (POST)
+  // CREATE NOTE (LOCALSTORAGE)
   // ===================================
   const onCreate = async (data) => {
     try {
-      const res = await fetch('http://localhost:5000/api/notes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: data.title,
-          content: data.content,
-          color: data.color
-        })
-      })
-
-      const saved = await res.json()
-
       const newNote = {
-        id: saved.id,
-        title: saved.title,
-        content: saved.content,
-        color: saved.color,
+        id: Date.now(), // Simple ID generation
+        title: data.title,
+        content: data.content,
+        color: data.color,
         createdAt: Date.now(),
         updatedAt: Date.now(),
-
-        // front-end only fields
         pinned: false,
         favorite: false,
         category: data.category || 'Personal',
@@ -103,22 +95,12 @@ export default function NotesDashboard() {
   }
 
   // ===================================
-  // UPDATE NOTE (PUT)
+  // UPDATE NOTE (LOCALSTORAGE)
   // ===================================
   const onEditSave = async (data) => {
     if (!editing) return
 
     try {
-      await fetch(`http://localhost:5000/api/notes/${editing.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: data.title,
-          content: data.content,
-          color: data.color
-        })
-      })
-
       setNotes(prev =>
         prev.map(n =>
           n.id === editing.id
@@ -143,21 +125,18 @@ export default function NotesDashboard() {
   }
 
   // ===================================
-  // DELETE NOTE (DELETE → move to trash)
+  // DELETE NOTE (LOCALSTORAGE → move to trash)
   // ===================================
   const onDelete = async (id) => {
     try {
-      await fetch(`http://localhost:5000/api/notes/${id}`, {
-        method: 'DELETE'
-      })
+      // No backend call needed
+      const note = notes.find(n => n.id === id)
+      if (note) {
+        setTrash(prev => [...prev, { ...note, deletedAt: Date.now() }])
+        setNotes(prev => prev.filter(n => n.id !== id))
+      }
     } catch (err) {
-      console.error('Backend delete failed (but will still move to trash):', err)
-    }
-
-    const note = notes.find(n => n.id === id)
-    if (note) {
-      setTrash(prev => [...prev, { ...note, deletedAt: Date.now() }])
-      setNotes(prev => prev.filter(n => n.id !== id))
+      console.error('Delete failed:', err)
     }
   }
 
