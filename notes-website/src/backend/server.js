@@ -1,7 +1,8 @@
+// backend/server.js
 import express from "express";
 import cors from "cors";
-import noteRoutes from "./routes/NoteRoutes.js";
-import transactionRoutes from "./routes/transaction.js"
+import noteRoutes from "./routes/noteRoutes.js";
+import transactionRoutes from "./routes/transaction.js";
 
 const app = express();
 app.use(cors());

@@ -1,97 +1,83 @@
-import express from "express";
-import pool from "../db.js";
+import express from 'express'
+import pool from '../db.js'
+import { v4 as uuidv4 } from 'uuid'
 
-const router = express.Router();
+const router = express.Router()
 
-// Get all notes
-router.get("/", async (req, res) => {
+// Create a pending note
+router.post('/', async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM notes ORDER BY updatedAt DESC");
-    res.json(rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+    const { address, action, content, tx_hash, status } = req.body
 
-// Get single note
-router.get("/:id", async (req, res) => {
-  try {
-    const [rows] = await pool.query("SELECT * FROM notes WHERE id = ?", [req.params.id]);
-    if (rows.length === 0) return res.status(404).json({ message: "Note not found" });
-    res.json(rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Create a new note
-router.post("/", async (req, res) => {
-  try {
-    const { title, content, color } = req.body || {};
-
-    const allowedColors = new Set(["yellow", "pink", "blue", "green"]);
-
-    if ((title == null || String(title).trim() === "") && (content == null || String(content).trim() === "")) {
-      return res.status(400).json({ message: "Title or content is required" });
+    if (!address || !action || !content) {
+      return res.status(400).json({ error: 'Address, action, and content are required' })
     }
 
-    const normalizedTitle = title != null ? String(title).trim() : null;
-    const normalizedContent = content != null ? String(content).trim() : null;
-    const normalizedColor = allowedColors.has(color) ? color : "yellow";
+    const note_id = uuidv4()
 
     const [result] = await pool.query(
-      "INSERT INTO notes (title, content, color) VALUES (?, ?, ?)",
-      [normalizedTitle, normalizedContent, normalizedColor]
-    );
+      `INSERT INTO notes (address, note_id, action, content, tx_hash, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [address, note_id, action, content, tx_hash || null, status || 'pending']
+    )
 
-    const [rows] = await pool.query("SELECT * FROM notes WHERE id = ?", [result.insertId]);
-    const created = rows && rows[0] ? rows[0] : {
-      id: result.insertId,
-      title: normalizedTitle,
-      content: normalizedContent,
-      color: normalizedColor,
-      updatedAt: new Date()
-    };
-
-    res.status(201).json(created);
+    const [rows] = await pool.query('SELECT id, address, note_id, action, content, tx_hash, status, created_at, updated_at FROM notes WHERE id = ?', [result.insertId])
+    res.json(rows[0])
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Create note error:', err)
+    res.status(500).json({ error: err.message })
   }
-});
+})
 
-
-// Update existing note
-router.put("/:id", async (req, res) => {
+// Get notes (optionally filter by address)
+router.get('/', async (req, res) => {
   try {
-    const { title, content, color } = req.body;
-    
-    // Update note in database
-    await pool.query(
-      "UPDATE notes SET title = ?, content = ?, color = ?, updatedAt = NOW() WHERE id = ?",
-      [title, content, color, req.params.id]
-    );
-    
-    // Return updated note data
-    res.json({ 
-      id: req.params.id, 
-      title, 
-      content, 
-      color, 
-      updatedAt: new Date() 
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
- 
+    const { address } = req.query
+    let query = 'SELECT id, address, note_id, action, content, tx_hash, status, created_at, updated_at FROM notes'
+    const params = []
 
-router.delete("/:id", async (req, res) => {
+    if (address) {
+      query += ' WHERE address = ?'
+      params.push(address)
+    }
+
+    query += ' ORDER BY created_at DESC'
+    const [rows] = await pool.query(query, params)
+    res.json(rows)
+  } catch (err) {
+    console.error('Get notes error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Update note (e.g., set tx_hash, update status)
+router.put('/:id', async (req, res) => {
   try {
-    await pool.query("DELETE FROM notes WHERE id=?", [req.params.id]);
-    res.json({ message: "Note deleted" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+    const id = req.params.id
+    const { tx_hash, status } = req.body
 
-export default router;
+    const updates = []
+    const params = []
+
+    if (tx_hash !== undefined) {
+      updates.push('tx_hash = ?')
+      params.push(tx_hash)
+    }
+    if (status !== undefined) {
+      updates.push('status = ?')
+      params.push(status)
+    }
+    if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' })
+
+    params.push(id)
+
+    await pool.query(`UPDATE notes SET ${updates.join(', ')}, updated_at = NOW() WHERE id = ?`, params)
+    const [rows] = await pool.query('SELECT id, address, note_id, action, content, tx_hash, status, created_at, updated_at FROM notes WHERE id = ?', [id])
+    res.json(rows[0])
+  } catch (err) {
+    console.error('Update note error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+export default router

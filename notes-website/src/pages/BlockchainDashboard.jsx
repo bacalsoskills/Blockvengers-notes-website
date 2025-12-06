@@ -1,17 +1,21 @@
 import { Blaze, Blockfrost, Core, WebWallet } from '@blaze-cardano/sdk'
 import { useState, useEffect } from 'react'
+import '../styles/blockchainDashboard.css'
 
 // HELPER FUNCTION: FORMAT CONTENT FOR METADATA (64-byte limit)
 const formatContent = (content) => {
   if (!content) return Core.Metadatum.newText('')
   if (content.length <= 64) return Core.Metadatum.newText(content)
+
   const chunks = content.match(/.{1,64}/g) || []
   const list = new Core.MetadatumList()
   chunks.forEach(chunk => list.add(Core.Metadatum.newText(chunk)))
   return Core.Metadatum.newList(list)
 }
 
-function App() {
+const backendUrl = 'http://localhost:5000' // full backend URL
+
+function BlockchainDashboard() {
   const [wallets, setWallets] = useState([])
   const [walletApi, setWalletApi] = useState(null)
   const [selectedWallet, setSelectedWallet] = useState('')
@@ -22,26 +26,41 @@ function App() {
   const [noteAction, setNoteAction] = useState('create')
   const [noteContent, setNoteContent] = useState('')
   const [notes, setNotes] = useState([])
-
-  // Backend saved transactions (filtered by sender)
   const [savedTxs, setSavedTxs] = useState([])
 
-  const [provider] = useState(() => new Blockfrost({
-    network: 'cardano-preview',
-    projectId: 'previewZ0LyqcrhipXE8eCnlu9GpXJrbpb0Vw9r'
-  }))
+  const [provider] = useState(() =>
+    new Blockfrost({
+      network: 'cardano-preview',
+      projectId: 'previewZ0LyqcrhipXE8eCnlu9GpXJrbpb0Vw9r'
+    })
+  )
 
   useEffect(() => {
     if (window.cardano) setWallets(Object.keys(window.cardano))
   }, [])
 
-  // Load only this user's transactions
+  // Load local notes from backend
+  const loadLocalNotes = async (address) => {
+    try {
+      const url = address
+        ? `${backendUrl}/api/notes?address=${encodeURIComponent(address)}`
+        : `${backendUrl}/api/notes`
+      const res = await fetch(url)
+      if (!res.ok) throw new Error('Failed to load notes')
+      const data = await res.json()
+      setNotes(data)
+    } catch (err) {
+      console.error('Error loading local notes:', err)
+    }
+  }
+
   const loadSavedTransactions = async (senderAddr) => {
     try {
-      const res = await fetch(
-        `http://localhost:5000/api/transaction?sender=${senderAddr}`
-      )
-      if (!res.ok) throw new Error('Failed to load saved transaction')
+      const url = senderAddr
+        ? `${backendUrl}/api/transaction?sender=${encodeURIComponent(senderAddr)}`
+        : `${backendUrl}/api/transaction`
+      const res = await fetch(url)
+      if (!res.ok) throw new Error('Failed to load saved transactions')
       const data = await res.json()
       setSavedTxs(data)
     } catch (err) {
@@ -49,7 +68,6 @@ function App() {
     }
   }
 
-  // Event handlers
   const handleWalletChange = (e) => setSelectedWallet(e.target.value)
   const handleRecipientChange = (e) => setRecipient(e.target.value)
   const handleAmountChange = (e) => {
@@ -59,49 +77,73 @@ function App() {
   const handleNoteActionChange = (e) => setNoteAction(e.target.value)
   const handleNoteContentChange = (e) => setNoteContent(e.target.value)
 
-  // Connect wallet
   const handleConnectWallet = async () => {
     if (!selectedWallet || !window.cardano[selectedWallet]) return
+
     try {
       const api = await window.cardano[selectedWallet].enable()
       setWalletApi(api)
+
       const address = await api.getChangeAddress()
       setWalletAddress(address)
 
-      await fetchNotes(api, address)
-
-      // load ONLY this user's transactions
+      await loadLocalNotes(address)
       await loadSavedTransactions(address)
 
+      // Refresh notes every 2 seconds
+      setInterval(() => {
+        loadLocalNotes(address)
+        loadSavedTransactions(address)
+      }, 2000)
     } catch (err) {
       console.error('Error connecting wallet:', err)
     }
   }
 
-  // Submit Cardano transaction
   const handleSubmitTransaction = async () => {
     if (!walletApi) return alert('Connect your wallet first!')
     if (!recipient) return alert('Recipient address required!')
     if (!amount || amount <= 0n) return alert('Amount must be > 0')
     if (!noteContent && noteAction !== 'delete') return alert('Note content required!')
 
+    let noteRow
+    try {
+      const res = await fetch(`${backendUrl}/api/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: walletAddress || null,
+          note_id: null,
+          action: noteAction,
+          content: noteContent,
+          tx_hash: null,
+          status: 'pending'
+        })
+      })
+      if (!res.ok) throw new Error('Failed to create local note')
+      noteRow = await res.json()
+      setNotes(prev => [noteRow, ...prev])
+    } catch (err) {
+      console.error('Error creating pending note:', err)
+      alert('Failed to save note locally. See console.')
+      return
+    }
+
     try {
       const wallet = new WebWallet(walletApi)
       const blaze = await Blaze.from(provider, wallet)
 
-      // Metadata label
       const metadata = new Map()
       const label = 42819n
       const metadatumMap = new Core.MetadatumMap()
       metadatumMap.insert(Core.Metadatum.newText('action'), Core.Metadatum.newText(noteAction))
       metadatumMap.insert(Core.Metadatum.newText('note'), formatContent(noteContent || ''))
-      const createdAtIso = new Date().toISOString()
-      metadatumMap.insert(Core.Metadatum.newText('created_at'), Core.Metadatum.newText(createdAtIso))
+      metadatumMap.insert(Core.Metadatum.newText('created_at'), Core.Metadatum.newText(new Date().toISOString()))
+
       const metadatum = Core.Metadatum.newMap(metadatumMap)
       metadata.set(label, metadatum)
       const finalMetadata = new Core.Metadata(metadata)
 
-      // Build + sign transaction
       const tx = blaze.newTransaction().payLovelace(Core.Address.fromBech32(recipient), amount)
       tx.setMetadata(finalMetadata)
 
@@ -109,145 +151,108 @@ function App() {
       const signedTx = await blaze.signTransaction(completedTx)
       const txId = await blaze.provider.postTransactionToChain(signedTx)
 
+      // Update local note with tx_hash
+      await fetch(`${backendUrl}/api/notes/${noteRow.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tx_hash: txId, status: 'pending' })
+      })
+
+      // Save transaction record
+      await fetch(`${backendUrl}/api/transaction`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tx_hash: txId,
+          amount: amount.toString(),
+          sender: walletAddress || null,
+          recipient,
+          metadata: { action: noteAction, note: noteContent, created_at: new Date().toISOString() }
+        })
+      })
+
+      await loadLocalNotes(walletAddress)
+      await loadSavedTransactions(walletAddress)
+
       alert(`Transaction submitted! Hash: ${txId}`)
       setNoteContent('')
-
-      // Save transaction in backend
-      try {
-        const res = await fetch("http://localhost:5000/api/transaction", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            tx_hash: txId,
-            amount: amount.toString(),
-            sender: walletAddress || null,
-            recipient,
-            metadata: {
-              action: noteAction,
-              note: noteContent,
-              created_at: createdAtIso
-            }
-          })
-        })
-
-        if (res.ok) {
-          await loadSavedTransactions(walletAddress) // reload filtered data
-        }
-
-      } catch (err) {
-        console.error('Error saving to backend:', err)
-      }
-
-      // reload blockchain notes
-      await fetchNotes(walletApi, walletAddress)
     } catch (err) {
       console.error('Error submitting transaction:', err)
       alert('Transaction failed. See console.')
     }
   }
 
-  // Fetch on-chain notes via metadata
-  const fetchNotes = async (api, rawAddress) => {
-    try {
-      const utxos = await api.getUtxos()
-      const notesFromChain = []
-
-      for (const utxo of utxos) {
-        if (!utxo) continue
-        const txHash = utxo.tx_hash
-        try {
-          const txMetadata = await provider.getTransactionMetadata(txHash)
-          if (txMetadata && txMetadata[42819]) {
-            notesFromChain.push(txMetadata[42819])
-          }
-        } catch { }
-      }
-
-      setNotes(notesFromChain.flat())
-    } catch (err) {
-      console.error('Error fetching notes:', err)
-    }
-  }
-
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Notes App – Blockchain Simulation (Cardano)</h2>
+    <div className="dashboard-container">
+      <h1 className="dashboard-title">Cardano Notes Dashboard</h1>
 
-      <div style={{ marginBottom: 10 }}>
-        <label>Select Wallet: </label>
-        <select value={selectedWallet} onChange={handleWalletChange}>
+      {/* WALLET CARD */}
+      <div className="card">
+        <h2 className="card-title">Wallet</h2>
+        <select className="input" value={selectedWallet} onChange={handleWalletChange}>
           <option value="">-- Choose Wallet --</option>
-          {wallets.map((w) => <option key={w} value={w}>{w}</option>)}
+          {wallets.map(w => <option key={w} value={w}>{w}</option>)}
         </select>
+
+        {walletApi ? (
+          <p className="wallet-connected">Connected: {walletAddress}</p>
+        ) : (
+          <button className="btn-primary" onClick={handleConnectWallet}>Connect Wallet</button>
+        )}
       </div>
 
-      {walletApi ? (
-        <p>Wallet Connected: {walletAddress}</p>
-      ) : (
-        <button onClick={handleConnectWallet}>Connect Wallet</button>
-      )}
-
-      <div style={{ marginTop: 20 }}>
-        <label>Recipient Address: </label>
-        <input type="text" value={recipient} onChange={handleRecipientChange} />
-        <br />
-        <label>Amount (lovelace): </label>
-        <input type="number" value={amount.toString()} onChange={handleAmountChange} />
-        <br />
-        <label>Action: </label>
-        <select value={noteAction} onChange={handleNoteActionChange}>
+      {/* SUBMIT NOTE */}
+      <div className="card">
+        <h2 className="card-title">Submit Note</h2>
+        <input className="input" type="text" value={recipient} onChange={handleRecipientChange} placeholder="Recipient Address" />
+        <input className="input" type="number" value={amount.toString()} onChange={handleAmountChange} placeholder="Amount (lovelace)" />
+        <select className="input" value={noteAction} onChange={handleNoteActionChange}>
           <option value="create">Create</option>
           <option value="update">Update</option>
           <option value="delete">Delete</option>
         </select>
-        <br />
         {noteAction !== 'delete' && (
-          <>
-            <label>Note Content: </label>
-            <input type="text" value={noteContent} onChange={handleNoteContentChange} />
-            <br />
-          </>
+          <input className="input" type="text" value={noteContent} onChange={handleNoteContentChange} placeholder="Note Content" />
         )}
-        <button onClick={handleSubmitTransaction} style={{ marginTop: 10 }}>
-          Submit Note Action
-        </button>
+        <button className="btn-primary" onClick={handleSubmitTransaction}>Submit</button>
       </div>
 
-      {/* Blockchain notes */}
-      <div style={{ marginTop: 30 }}>
-        <h3>Submitted Notes Found On-Chain</h3>
+      {/* LOCAL NOTES */}
+      <div className="card">
+        <h2 className="card-title">Your Local Notes (cache)</h2>
         {notes.length === 0 ? (
-          <p>No notes found on blockchain yet.</p>
+          <p className="empty-text">No local notes found.</p>
         ) : (
-          <ul>
-            {notes.map((n, idx) => (
-              <li key={idx}>
-                <pre>{JSON.stringify(n, null, 2)}</pre>
+          <ul className="list">
+            {notes.map(n => (
+              <li key={n.id} className="list-item">
+                <div><strong>Content:</strong> {n.content}</div>
+                <div><strong>Action:</strong> {n.action}</div>
+                <div><strong>Tx:</strong> {n.tx_hash || '—'}</div>
+                <div><strong>Status:</strong> {n.status}</div>
+                <div><small>Saved: {new Date(n.created_at).toLocaleString()}</small></div>
+                <div><small>Updated: {n.updated_at ? new Date(n.updated_at).toLocaleString() : '—'}</small></div>
               </li>
             ))}
           </ul>
         )}
       </div>
 
-      {/* User-specific saved transactions */}
-      <div style={{ marginTop: 30 }}>
-        <h3>Your Saved Transactions</h3>
+      {/* SAVED TRANSACTIONS */}
+      <div className="card">
+        <h2 className="card-title">Saved Transactions</h2>
         {savedTxs.length === 0 ? (
-          <p>No transactions saved for this wallet.</p>
+          <p className="empty-text">No saved transactions.</p>
         ) : (
-          <ul>
-            {savedTxs.map((t) => (
-              <li key={t.id} style={{ marginBottom: 12 }}>
-                <div><strong>Hash:</strong> {t.tx_hash}</div>
-                <div><strong>Amount:</strong> {t.amount}</div>
-                <div><strong>Sender:</strong> {t.sender}</div>
-                <div><strong>Recipient:</strong> {t.recipient}</div>
-                <div><strong>Metadata:</strong> 
-                  <pre style={{ display: 'inline' }}>
-                    {JSON.stringify(t.metadata)}
-                  </pre>
-                </div>
-                <div><small>Saved at: {new Date(t.createdAt).toLocaleString()}</small></div>
+          <ul className="list">
+            {savedTxs.map(t => (
+              <li key={t.id} className="list-item">
+                <strong>Hash:</strong> {t.tx_hash}<br />
+                <strong>Amount:</strong> {t.amount}<br />
+                <strong>Sender:</strong> {t.sender}<br />
+                <strong>Recipient:</strong> {t.recipient}<br />
+                <strong>Metadata:</strong>
+                <pre>{JSON.stringify(t.metadata, null, 2)}</pre>
               </li>
             ))}
           </ul>
@@ -257,4 +262,4 @@ function App() {
   )
 }
 
-export default App
+export default BlockchainDashboard
