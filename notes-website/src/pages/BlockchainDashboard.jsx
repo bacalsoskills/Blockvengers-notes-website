@@ -1,244 +1,260 @@
+import { Blaze, Blockfrost, Core, WebWallet } from '@blaze-cardano/sdk'
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import TransactionForm from '../components/TransactionForm.jsx'
-import BlockchainService from '../services/blockchainService.js'
 
-export default function BlockchainDashboard() {
-  const [accountInfo, setAccountInfo] = useState(null)
-  const [transactions, setTransactions] = useState([])
-  const [showTransactionForm, setShowTransactionForm] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [adaPrice, setAdaPrice] = useState(null)
+// HELPER FUNCTION: FORMAT CONTENT FOR METADATA (64-byte limit)
+const formatContent = (content) => {
+  if (!content) return Core.Metadatum.newText('')
+  if (content.length <= 64) return Core.Metadatum.newText(content)
+  const chunks = content.match(/.{1,64}/g) || []
+  const list = new Core.MetadatumList()
+  chunks.forEach(chunk => list.add(Core.Metadatum.newText(chunk)))
+  return Core.Metadatum.newList(list)
+}
+
+function App() {
+  const [wallets, setWallets] = useState([])
+  const [walletApi, setWalletApi] = useState(null)
+  const [selectedWallet, setSelectedWallet] = useState('')
+  const [walletAddress, setWalletAddress] = useState('')
+
+  const [recipient, setRecipient] = useState('')
+  const [amount, setAmount] = useState(0n)
+  const [noteAction, setNoteAction] = useState('create')
+  const [noteContent, setNoteContent] = useState('')
+  const [notes, setNotes] = useState([])
+
+  // Backend saved transactions (filtered by sender)
+  const [savedTxs, setSavedTxs] = useState([])
+
+  const [provider] = useState(() => new Blockfrost({
+    network: 'cardano-preview',
+    projectId: 'previewZ0LyqcrhipXE8eCnlu9GpXJrbpb0Vw9r'
+  }))
 
   useEffect(() => {
-    loadDashboardData()
+    if (window.cardano) setWallets(Object.keys(window.cardano))
   }, [])
 
-  const loadDashboardData = async () => {
+  // Load only this user's transactions
+  const loadSavedTransactions = async (senderAddr) => {
     try {
-      setIsLoading(true)
-      const [account, txHistory, price] = await Promise.all([
-        BlockchainService.getAccountInfo(),
-        BlockchainService.getTransactionHistory(),
-        BlockchainService.getADAPrice()
-      ])
-      
-      setAccountInfo(account)
-      setTransactions(txHistory)
-      setAdaPrice(price)
-    } catch (error) {
-      console.error('Error loading dashboard data:', error)
-    } finally {
-      setIsLoading(false)
+      const res = await fetch(
+        `http://localhost:5000/api/transaction?sender=${senderAddr}`
+      )
+      if (!res.ok) throw new Error('Failed to load saved transaction')
+      const data = await res.json()
+      setSavedTxs(data)
+    } catch (err) {
+      console.error('Error loading saved txs:', err)
     }
   }
 
-  const handleTransactionComplete = (transaction) => {
-    // Add new transaction to the list
-    setTransactions(prev => [transaction, ...prev])
-    
-    // Update account balance
-    if (accountInfo) {
-      const newBalance = accountInfo.balance - (transaction.amount + transaction.fee)
-      setAccountInfo(prev => ({
-        ...prev,
-        balance: newBalance,
-        balanceADA: (newBalance / 1000000).toFixed(6)
-      }))
+  // Event handlers
+  const handleWalletChange = (e) => setSelectedWallet(e.target.value)
+  const handleRecipientChange = (e) => setRecipient(e.target.value)
+  const handleAmountChange = (e) => {
+    const v = e.target.value
+    setAmount(v === '' ? 0n : BigInt(v))
+  }
+  const handleNoteActionChange = (e) => setNoteAction(e.target.value)
+  const handleNoteContentChange = (e) => setNoteContent(e.target.value)
+
+  // Connect wallet
+  const handleConnectWallet = async () => {
+    if (!selectedWallet || !window.cardano[selectedWallet]) return
+    try {
+      const api = await window.cardano[selectedWallet].enable()
+      setWalletApi(api)
+      const address = await api.getChangeAddress()
+      setWalletAddress(address)
+
+      await fetchNotes(api, address)
+
+      // load ONLY this user's transactions
+      await loadSavedTransactions(address)
+
+    } catch (err) {
+      console.error('Error connecting wallet:', err)
     }
-    
-    setShowTransactionForm(false)
   }
 
-  const formatAmount = (lovelace) => {
-    return (Math.abs(lovelace) / 1000000).toFixed(6)
+  // Submit Cardano transaction
+  const handleSubmitTransaction = async () => {
+    if (!walletApi) return alert('Connect your wallet first!')
+    if (!recipient) return alert('Recipient address required!')
+    if (!amount || amount <= 0n) return alert('Amount must be > 0')
+    if (!noteContent && noteAction !== 'delete') return alert('Note content required!')
+
+    try {
+      const wallet = new WebWallet(walletApi)
+      const blaze = await Blaze.from(provider, wallet)
+
+      // Metadata label
+      const metadata = new Map()
+      const label = 42819n
+      const metadatumMap = new Core.MetadatumMap()
+      metadatumMap.insert(Core.Metadatum.newText('action'), Core.Metadatum.newText(noteAction))
+      metadatumMap.insert(Core.Metadatum.newText('note'), formatContent(noteContent || ''))
+      const createdAtIso = new Date().toISOString()
+      metadatumMap.insert(Core.Metadatum.newText('created_at'), Core.Metadatum.newText(createdAtIso))
+      const metadatum = Core.Metadatum.newMap(metadatumMap)
+      metadata.set(label, metadatum)
+      const finalMetadata = new Core.Metadata(metadata)
+
+      // Build + sign transaction
+      const tx = blaze.newTransaction().payLovelace(Core.Address.fromBech32(recipient), amount)
+      tx.setMetadata(finalMetadata)
+
+      const completedTx = await tx.complete()
+      const signedTx = await blaze.signTransaction(completedTx)
+      const txId = await blaze.provider.postTransactionToChain(signedTx)
+
+      alert(`Transaction submitted! Hash: ${txId}`)
+      setNoteContent('')
+
+      // Save transaction in backend
+      try {
+        const res = await fetch("http://localhost:5000/api/transaction", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tx_hash: txId,
+            amount: amount.toString(),
+            sender: walletAddress || null,
+            recipient,
+            metadata: {
+              action: noteAction,
+              note: noteContent,
+              created_at: createdAtIso
+            }
+          })
+        })
+
+        if (res.ok) {
+          await loadSavedTransactions(walletAddress) // reload filtered data
+        }
+
+      } catch (err) {
+        console.error('Error saving to backend:', err)
+      }
+
+      // reload blockchain notes
+      await fetchNotes(walletApi, walletAddress)
+    } catch (err) {
+      console.error('Error submitting transaction:', err)
+      alert('Transaction failed. See console.')
+    }
   }
 
-  const formatCurrency = (ada, rate) => {
-    return (parseFloat(ada) * rate).toFixed(2)
-  }
+  // Fetch on-chain notes via metadata
+  const fetchNotes = async (api, rawAddress) => {
+    try {
+      const utxos = await api.getUtxos()
+      const notesFromChain = []
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
+      for (const utxo of utxos) {
+        if (!utxo) continue
+        const txHash = utxo.tx_hash
+        try {
+          const txMetadata = await provider.getTransactionMetadata(txHash)
+          if (txMetadata && txMetadata[42819]) {
+            notesFromChain.push(txMetadata[42819])
+          }
+        } catch { }
+      }
 
-  if (isLoading) {
-    return (
-      <div className="dashboard-loading">
-        <div className="spinner-large"></div>
-        <p>Loading blockchain data...</p>
-      </div>
-    )
+      setNotes(notesFromChain.flat())
+    } catch (err) {
+      console.error('Error fetching notes:', err)
+    }
   }
 
   return (
-    <motion.div 
-      className="blockchain-dashboard"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-    >
-      <div className="dashboard-header">
-        <h1>Blockchain Dashboard</h1>
-        <p>Manage your Cardano (ADA) transactions</p>
+    <div style={{ padding: 20 }}>
+      <h2>Notes App – Blockchain Simulation (Cardano)</h2>
+
+      <div style={{ marginBottom: 10 }}>
+        <label>Select Wallet: </label>
+        <select value={selectedWallet} onChange={handleWalletChange}>
+          <option value="">-- Choose Wallet --</option>
+          {wallets.map((w) => <option key={w} value={w}>{w}</option>)}
+        </select>
       </div>
 
-      {/* Account Overview */}
-      <motion.div 
-        className="account-overview"
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.1 }}
-      >
-        <div className="balance-card">
-          <div className="balance-header">
-            <h3>Your Balance</h3>
-            <div className="wallet-icon">
-              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="1" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <path d="m9 9 3 3-3 3"></path>
-              </svg>
-            </div>
-          </div>
-          <div className="balance-amount">
-            <span className="ada-amount">{accountInfo?.balanceADA} ADA</span>
-            {adaPrice && (
-              <div className="fiat-amounts">
-                <span>${formatCurrency(accountInfo?.balanceADA, adaPrice.usd)} USD</span>
-                <span>€{formatCurrency(accountInfo?.balanceADA, adaPrice.eur)} EUR</span>
-              </div>
-            )}
-          </div>
-          <div className="wallet-address">
-            <small>Address: {accountInfo?.address?.slice(0, 20)}...</small>
-          </div>
-        </div>
+      {walletApi ? (
+        <p>Wallet Connected: {walletAddress}</p>
+      ) : (
+        <button onClick={handleConnectWallet}>Connect Wallet</button>
+      )}
 
-        {adaPrice && (
-          <div className="price-card">
-            <h4>ADA Price</h4>
-            <div className="price-list">
-              <div className="price-item">
-                <span>USD</span>
-                <span>${adaPrice.usd}</span>
-              </div>
-              <div className="price-item">
-                <span>EUR</span>
-                <span>€{adaPrice.eur}</span>
-              </div>
-              <div className="price-item">
-                <span>BTC</span>
-                <span>{adaPrice.btc} ₿</span>
-              </div>
-            </div>
-          </div>
+      <div style={{ marginTop: 20 }}>
+        <label>Recipient Address: </label>
+        <input type="text" value={recipient} onChange={handleRecipientChange} />
+        <br />
+        <label>Amount (lovelace): </label>
+        <input type="number" value={amount.toString()} onChange={handleAmountChange} />
+        <br />
+        <label>Action: </label>
+        <select value={noteAction} onChange={handleNoteActionChange}>
+          <option value="create">Create</option>
+          <option value="update">Update</option>
+          <option value="delete">Delete</option>
+        </select>
+        <br />
+        {noteAction !== 'delete' && (
+          <>
+            <label>Note Content: </label>
+            <input type="text" value={noteContent} onChange={handleNoteContentChange} />
+            <br />
+          </>
         )}
-      </motion.div>
-
-      {/* Actions */}
-      <motion.div 
-        className="dashboard-actions"
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.2 }}
-      >
-        <button
-          className="btn-primary action-btn"
-          onClick={() => setShowTransactionForm(true)}
-          disabled={showTransactionForm}
-        >
-          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="m7 11 5-5 5 5"></path>
-            <path d="m12 6 0 12"></path>
-          </svg>
-          Send ADA
+        <button onClick={handleSubmitTransaction} style={{ marginTop: 10 }}>
+          Submit Note Action
         </button>
-        
-        <button 
-          className="btn-secondary action-btn"
-          onClick={loadDashboardData}
-          disabled={isLoading}
-        >
-          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 2v6h-6"></path>
-            <path d="M21 13a9 9 0 1 1-3-7.7L21 8"></path>
-          </svg>
-          Refresh
-        </button>
-      </motion.div>
+      </div>
 
-      {/* Transaction Form */}
-      <AnimatePresence>
-        {showTransactionForm && (
-          <motion.div className="form-overlay">
-            <TransactionForm
-              onTransactionComplete={handleTransactionComplete}
-              onCancel={() => setShowTransactionForm(false)}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Transaction History */}
-      <motion.div 
-        className="transaction-history"
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
-      >
-        <h3>Recent Transactions</h3>
-        {transactions.length === 0 ? (
-          <div className="empty-transactions">
-            <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-              <path d="m9 9 3 3-3 3"></path>
-            </svg>
-            <p>No transactions yet</p>
-          </div>
+      {/* Blockchain notes */}
+      <div style={{ marginTop: 30 }}>
+        <h3>Submitted Notes Found On-Chain</h3>
+        {notes.length === 0 ? (
+          <p>No notes found on blockchain yet.</p>
         ) : (
-          <div className="transactions-list">
-            {transactions.map((tx, index) => (
-              <motion.div
-                key={tx.hash || index}
-                className={`transaction-item ${tx.amount < 0 ? 'outgoing' : 'incoming'}`}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <div className="tx-icon">
-                  {tx.amount < 0 ? (
-                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="m7 11 5-5 5 5"></path>
-                      <path d="m12 6 0 12"></path>
-                    </svg>
-                  ) : (
-                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="m17 13-5 5-5-5"></path>
-                      <path d="m12 6 0 12"></path>
-                    </svg>
-                  )}
-                </div>
-                <div className="tx-details">
-                  <div className="tx-hash">{tx.hash?.slice(0, 16)}...</div>
-                  <div className="tx-date">{formatDate(tx.timestamp)}</div>
-                  {tx.message && <div className="tx-message">{tx.message}</div>}
-                </div>
-                <div className="tx-amount">
-                  <span className={tx.amount < 0 ? 'negative' : 'positive'}>
-                    {tx.amount < 0 ? '-' : '+'}{formatAmount(tx.amount)} ADA
-                  </span>
-                  <div className="tx-status">{tx.status}</div>
-                </div>
-              </motion.div>
+          <ul>
+            {notes.map((n, idx) => (
+              <li key={idx}>
+                <pre>{JSON.stringify(n, null, 2)}</pre>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-      </motion.div>
-    </motion.div>
+      </div>
+
+      {/* User-specific saved transactions */}
+      <div style={{ marginTop: 30 }}>
+        <h3>Your Saved Transactions</h3>
+        {savedTxs.length === 0 ? (
+          <p>No transactions saved for this wallet.</p>
+        ) : (
+          <ul>
+            {savedTxs.map((t) => (
+              <li key={t.id} style={{ marginBottom: 12 }}>
+                <div><strong>Hash:</strong> {t.tx_hash}</div>
+                <div><strong>Amount:</strong> {t.amount}</div>
+                <div><strong>Sender:</strong> {t.sender}</div>
+                <div><strong>Recipient:</strong> {t.recipient}</div>
+                <div><strong>Metadata:</strong> 
+                  <pre style={{ display: 'inline' }}>
+                    {JSON.stringify(t.metadata)}
+                  </pre>
+                </div>
+                <div><small>Saved at: {new Date(t.createdAt).toLocaleString()}</small></div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   )
 }
+
+export default App
