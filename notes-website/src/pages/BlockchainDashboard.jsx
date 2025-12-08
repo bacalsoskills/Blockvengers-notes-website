@@ -231,8 +231,6 @@ function BlockchainDashboard() {
         <input className="input" type="number" value={amount.toString()} onChange={handleAmountChange} placeholder="Amount (lovelace)" />
         <select className="input" value={noteAction} onChange={handleNoteActionChange}>
           <option value="create">Create</option>
-          <option value="update">Update</option>
-          <option value="delete">Delete</option>
         </select>
 
         {noteAction !== 'delete' && (
