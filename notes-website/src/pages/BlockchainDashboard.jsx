@@ -27,6 +27,7 @@ function BlockchainDashboard() {
   const [noteContent, setNoteContent] = useState('')
   const [notes, setNotes] = useState([])
   const [savedTxs, setSavedTxs] = useState([])
+  const [modalType, setModalType] = useState(null) // 'pending' | 'confirmed' | 'saved' | null
 
   const [provider] = useState(() =>
     new Blockfrost({
@@ -182,84 +183,206 @@ function BlockchainDashboard() {
     }
   }
 
+  const pendingNotes = notes.filter(n => n.status === 'pending')
+  const confirmedNotes = notes.filter(n => n.status !== 'pending')
+  const latestPending = pendingNotes.slice(0, 1)
+  const latestConfirmed = confirmedNotes.slice(0, 1)
+  const latestSaved = savedTxs.slice(0, 1)
+
+  const renderMetadataLines = (meta) => {
+    if (!meta) return '—'
+    let obj = meta
+    if (typeof meta === 'string') {
+      try {
+        obj = JSON.parse(meta)
+      } catch {
+        return meta
+      }
+    }
+    if (typeof obj !== 'object') return String(obj)
+    return Object.entries(obj).map(([k, v]) => (
+      <div key={k}><strong>{k}:</strong> {String(v)}</div>
+    ))
+  }
+
   return (
-    <div className="dashboard-container">
-      <h1 className="dashboard-title">Cardano Notes Dashboard</h1>
+  <div className="dashboard-container">
+    <h1 className="dashboard-title">Cardano Notes Dashboard</h1>
 
-      {/* WALLET CARD */}
-      <div className="card">
-        <h2 className="card-title">Wallet</h2>
-        <select className="input" value={selectedWallet} onChange={handleWalletChange}>
-          <option value="">-- Choose Wallet --</option>
-          {wallets.map(w => <option key={w} value={w}>{w}</option>)}
-        </select>
+    {/* WALLET CARD */}
+    <div className="card card-hover">
+      <h2 className="card-title">Wallet</h2>
+      <select className="input" value={selectedWallet} onChange={handleWalletChange}>
+        <option value="">-- Choose Wallet --</option>
+        {wallets.map(w => <option key={w} value={w}>{w}</option>)}
+      </select>
 
-        {walletApi ? (
-          <p className="wallet-connected">Connected: {walletAddress}</p>
-        ) : (
-          <button className="btn-primary" onClick={handleConnectWallet}>Connect Wallet</button>
-        )}
-      </div>
+      {walletApi ? (
+        <p className="wallet-connected">Connected: {walletAddress}</p>
+      ) : (
+        <button className="btn-primary" onClick={handleConnectWallet}>Connect Wallet</button>
+      )}
+    </div>
 
-      {/* SUBMIT NOTE */}
-      <div className="card">
-        <h2 className="card-title">Submit Note</h2>
-        <input className="input" type="text" value={recipient} onChange={handleRecipientChange} placeholder="Recipient Address" />
-        <input className="input" type="number" value={amount.toString()} onChange={handleAmountChange} placeholder="Amount (lovelace)" />
-        <select className="input" value={noteAction} onChange={handleNoteActionChange}>
-          <option value="create">Create</option>
-          <option value="update">Update</option>
-          <option value="delete">Delete</option>
-        </select>
-        {noteAction !== 'delete' && (
-          <input className="input" type="text" value={noteContent} onChange={handleNoteContentChange} placeholder="Note Content" />
-        )}
-        <button className="btn-primary" onClick={handleSubmitTransaction}>Submit</button>
-      </div>
+    {/* SUBMIT NOTE */}
+    <div className="card card-hover">
+      <h2 className="card-title">Submit Note</h2>
+      <input className="input" type="text" value={recipient} onChange={handleRecipientChange} placeholder="Recipient Address" />
+      <input className="input" type="number" value={amount.toString()} onChange={handleAmountChange} placeholder="Amount (lovelace)" />
+      <select className="input" value={noteAction} onChange={handleNoteActionChange}>
+        <option value="create">Create</option>
+        <option value="update">Update</option>
+        <option value="delete">Delete</option>
+      </select>
 
-      {/* LOCAL NOTES */}
-      <div className="card">
-        <h2 className="card-title">Your Local Notes (cache)</h2>
-        {notes.length === 0 ? (
-          <p className="empty-text">No local notes found.</p>
-        ) : (
-          <ul className="list">
-            {notes.map(n => (
-              <li key={n.id} className="list-item">
-                <div><strong>Content:</strong> {n.content}</div>
-                <div><strong>Action:</strong> {n.action}</div>
-                <div><strong>Tx:</strong> {n.tx_hash || '—'}</div>
-                <div><strong>Status:</strong> {n.status}</div>
-                <div><small>Saved: {new Date(n.created_at).toLocaleString()}</small></div>
-                <div><small>Updated: {n.updated_at ? new Date(n.updated_at).toLocaleString() : '—'}</small></div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {noteAction !== 'delete' && (
+        <input className="input" type="text" value={noteContent} onChange={handleNoteContentChange} placeholder="Note Content" />
+      )}
 
-      {/* SAVED TRANSACTIONS */}
-      <div className="card">
-        <h2 className="card-title">Saved Transactions</h2>
-        {savedTxs.length === 0 ? (
-          <p className="empty-text">No saved transactions.</p>
-        ) : (
-          <ul className="list">
-            {savedTxs.map(t => (
-              <li key={t.id} className="list-item">
-                <strong>Hash:</strong> {t.tx_hash}<br />
-                <strong>Amount:</strong> {t.amount}<br />
-                <strong>Sender:</strong> {t.sender}<br />
-                <strong>Recipient:</strong> {t.recipient}<br />
-                <strong>Metadata:</strong>
-                <pre>{JSON.stringify(t.metadata, null, 2)}</pre>
-              </li>
-            ))}
-          </ul>
-        )}
+      <button className="btn-primary" onClick={handleSubmitTransaction}>Submit</button>
+    </div>
+
+    {/* LOCAL NOTES */}
+    <div className="card card-hover">
+      <h2 className="card-title">Your Local Notes (Cache)</h2>
+
+      <div className="notes-columns">
+        <div className="note-column">
+          <div className="note-column-header">
+            <h3>Pending</h3>
+            <span className="pill muted">{pendingNotes.length}</span>
+          </div>
+          {pendingNotes.length === 0 ? (
+            <p className="empty-text">No pending transactions.</p>
+          ) : (
+            <>
+              <ul className="list">
+                {latestPending.map(n => (
+                  <li key={n.id} className="list-item list-item-hover">
+                    <div><strong>Content:</strong> {n.content}</div>
+                    <div><strong>Action:</strong> {n.action}</div>
+                    <div><strong>Tx:</strong> {n.tx_hash || '—'}</div>
+                    <div><strong>Status:</strong> {n.status}</div>
+                    <div><small>Saved: {new Date(n.created_at).toLocaleString()}</small></div>
+                    <div><small>Updated: {n.updated_at ? new Date(n.updated_at).toLocaleString() : '—'}</small></div>
+                  </li>
+                ))}
+              </ul>
+              {pendingNotes.length > 1 && (
+                <button className="link-button" onClick={() => setModalType('pending')}>View all pending</button>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="note-column">
+          <div className="note-column-header">
+            <h3>Confirmed</h3>
+            <span className="pill success">{confirmedNotes.length}</span>
+          </div>
+          {confirmedNotes.length === 0 ? (
+            <p className="empty-text">No confirmed transactions.</p>
+          ) : (
+            <>
+              <ul className="list">
+                {latestConfirmed.map(n => (
+                  <li key={n.id} className="list-item list-item-hover">
+                    <div><strong>Content:</strong> {n.content}</div>
+                    <div><strong>Action:</strong> {n.action}</div>
+                    <div><strong>Tx:</strong> {n.tx_hash || '—'}</div>
+                    <div><strong>Status:</strong> {n.status}</div>
+                    <div><small>Saved: {new Date(n.created_at).toLocaleString()}</small></div>
+                    <div><small>Updated: {n.updated_at ? new Date(n.updated_at).toLocaleString() : '—'}</small></div>
+                  </li>
+                ))}
+              </ul>
+              {confirmedNotes.length > 1 && (
+                <button className="link-button" onClick={() => setModalType('confirmed')}>View all confirmed</button>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
-  )
+
+    {modalType && (
+      <div className="modal-overlay" onClick={() => setModalType(null)}>
+        <div className="simple-modal" onClick={e => e.stopPropagation()}>
+          <div className="simple-modal-header">
+            <h3>
+              {modalType === 'pending'
+                ? 'All Pending'
+                : modalType === 'confirmed'
+                ? 'All Confirmed'
+                : 'All Saved Transactions'}
+            </h3>
+            <button className="link-button" onClick={() => setModalType(null)}>Close</button>
+          </div>
+          <div className="simple-modal-body">
+            <ul className="list">
+              {(modalType === 'pending'
+                ? pendingNotes
+                : modalType === 'confirmed'
+                ? confirmedNotes
+                : savedTxs
+              ).map(item => (
+                <li key={item.id} className="list-item list-item-hover">
+                  {modalType === 'saved' ? (
+                    <>
+                      <div><strong>Hash:</strong> {item.tx_hash}</div>
+                      <div><strong>Amount:</strong> {item.amount}</div>
+                      <div><strong>Sender:</strong> {item.sender}</div>
+                      <div><strong>Recipient:</strong> {item.recipient}</div>
+                      <div><strong>Metadata:</strong></div>
+                      <div className="metadata-box">{renderMetadataLines(item.metadata)}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div><strong>Content:</strong> {item.content}</div>
+                      <div><strong>Action:</strong> {item.action}</div>
+                      <div><strong>Tx:</strong> {item.tx_hash || '—'}</div>
+                      <div><strong>Status:</strong> {item.status}</div>
+                      <div><small>Saved: {new Date(item.created_at).toLocaleString()}</small></div>
+                      <div><small>Updated: {item.updated_at ? new Date(item.updated_at).toLocaleString() : '—'}</small></div>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* SAVED TRANSACTIONS */}
+    <div className="card card-hover">
+      <h2 className="card-title">Saved Transactions</h2>
+
+      {savedTxs.length === 0 ? (
+        <p className="empty-text">No saved transactions.</p>
+      ) : (
+        <>
+          <ul className="list">
+            {latestSaved.map(t => (
+              <li key={t.id} className="list-item list-item-hover">
+                <div><strong>Hash:</strong> {t.tx_hash}</div>
+                <div><strong>Amount:</strong> {t.amount}</div>
+                <div><strong>Sender:</strong> {t.sender}</div>
+                <div><strong>Recipient:</strong> {t.recipient}</div>
+                <div><strong>Metadata:</strong></div>
+                <div className="metadata-box">{renderMetadataLines(t.metadata)}</div>
+              </li>
+            ))}
+          </ul>
+          {savedTxs.length > 1 && (
+            <button className="link-button" onClick={() => setModalType('saved')}>View all saved</button>
+          )}
+        </>
+      )}
+    </div>
+  </div>
+);
+
 }
 
 export default BlockchainDashboard

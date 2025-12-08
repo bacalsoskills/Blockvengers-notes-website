@@ -1,9 +1,8 @@
-// confirmationWorker.js
 import axios from 'axios'
 import pool from './db.js'
 import dotenv from 'dotenv'
 import path from 'path'
-dotenv.config({ path: path.resolve('../../.env') }) // <-- adjust to your project root
+dotenv.config({ path: path.resolve('../../.env') }) 
 
 const BLOCKFROST_KEY = process.env.BLOCKFROST_KEY
 const API_BASE = 'https://cardano-preview.blockfrost.io/api/v0'

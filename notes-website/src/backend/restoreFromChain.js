@@ -1,4 +1,3 @@
-// backend/restoreFromChain.js
 import axios from 'axios'
 import pool from './db.js'
 import dotenv from 'dotenv'
@@ -6,7 +5,7 @@ dotenv.config()
 
 const BLOCKFROST_KEY = process.env.BLOCKFROST_KEY || 'previewZ0LyqcrhipXE8eCnlu9GpXJrbpb0Vw9r'
 const API_BASE = 'https://cardano-preview.blockfrost.io/api/v0'
-const LABEL = '42819' // the label we use for metadata
+const LABEL = '42819' 
 
 async function noteExistsByTx(txHash) {
   const [rows] = await pool.query('SELECT id FROM notes WHERE tx_hash = ?', [txHash])
