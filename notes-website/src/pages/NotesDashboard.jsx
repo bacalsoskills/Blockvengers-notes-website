@@ -9,6 +9,28 @@ import ViewNoteModal from '../components/ViewNoteModal.jsx'
 
 const API = "http://localhost:5000/api/notes";
 
+function normalizeTags(t) {
+  if (!t) return [];
+  if (Array.isArray(t)) return t;
+  try {
+    const parsed = JSON.parse(t);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function toTimestamp(val) {
+  if (!val) return 0;
+  // If already a number
+  if (typeof val === 'number') return val;
+  // If it's a Date object
+  if (val instanceof Date) return val.getTime();
+  // Otherwise try to parse string
+  const parsed = Date.parse(val);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
 export default function NotesDashboard() {
   const navigate = useNavigate();
 
@@ -20,138 +42,243 @@ export default function NotesDashboard() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [viewingNote, setViewingNote] = useState(null);
 
-  // Load notes + trash from backend
   const loadData = async () => {
-  const resNotes = await fetch(API);
-  const resTrash = await fetch(`${API}/trash`);
+    try {
+      const resNotes = await fetch(API);
+      const resTrash = await fetch(`${API}/trash`);
 
-  const dataNotes = await resNotes.json();
-  const dataTrash = await resTrash.json();
+      const dataNotes = await resNotes.json();
+      const dataTrash = await resTrash.json();
 
-  // Parse tags + convert timestamps to numbers
-  const parsedNotes = dataNotes.map(n => ({
-    ...n,
-    tags: n.tags ? JSON.parse(n.tags) : [],
-    updatedAt: n.updatedAt ? new Date(n.updatedAt).getTime() : 0
-  }));
+      const parsedNotes = dataNotes.map(n => ({
+        ...n,
+        tags: normalizeTags(n.tags),
+        updatedAt: toTimestamp(n.updatedAt || n.updatedAt),
+      }));
 
-  const parsedTrash = dataTrash.map(n => ({
-    ...n,
-    tags: n.tags ? JSON.parse(n.tags) : [],
-    deletedAt: n.deletedAt ? new Date(n.deletedAt).getTime() : 0
-  }));
+      const parsedTrash = dataTrash.map(n => ({
+        ...n,
+        tags: normalizeTags(n.tags),
+        deletedAt: toTimestamp(n.deletedAt)
+      }));
 
-  setNotes(parsedNotes);
-  setTrash(parsedTrash);
-};
+      setNotes(parsedNotes);
+      setTrash(parsedTrash);
+    } catch (err) {
+      console.error("Load data error:", err);
+    }
+  };
 
-
-  // Redirect if no user
   useEffect(() => {
     loadData();
   }, []);
 
   // Create note (POST)
   const onCreate = async (data) => {
-    const res = await fetch(API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
-    });
-    const newNote = await res.json();
+    try {
+      const res = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
 
-    newNote.tags = newNote.tags ? JSON.parse(newNote.tags) : [];
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: 'Unknown error' }));
+        console.error("Create failed:", err);
+        return;
+      }
 
-    setNotes(prev => [newNote, ...prev]);
-    setShowForm(false);
+      const newNote = await res.json();
+
+      // Normalize
+      const normalized = {
+        ...newNote,
+        tags: normalizeTags(newNote.tags),
+        updatedAt: toTimestamp(newNote.updatedAt),
+      };
+
+      setNotes(prev => [normalized, ...prev]);
+      setShowForm(false);
+    } catch (err) {
+      console.error("onCreate error:", err);
+    }
   };
 
   // Save edits (PUT)
   const onEditSave = async (data) => {
-    const res = await fetch(`${API}/${editing.id}`, {
+  try {
+    const res = await fetch(`${API}/${data.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
     });
 
-    const updated = await res.json();
-    updated.tags = updated.tags ? JSON.parse(updated.tags) : [];
 
-    setNotes(prev => prev.map(n => n.id === editing.id ? updated : n));
-    setEditing(null);
-    setShowForm(false);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: 'Unknown error' }));
+        console.error("Update failed:", err);
+        return;
+      }
+
+      const updated = await res.json();
+
+      const normalized = {
+        ...updated,
+        tags: normalizeTags(updated.tags),
+        updatedAt: toTimestamp(updated.updatedAt),
+      };
+
+      setNotes(prev => prev.map(n => n.id === data.id ? normalized : n));
+      setEditing(null);
+      setShowForm(false);
+    } catch (err) {
+      console.error("onEditSave error:", err);
+    }
   };
 
   // Soft delete -> Move to trash
   const onDelete = async (id) => {
-    await fetch(`${API}/${id}`, { method: "DELETE" });
+    try {
+      const res = await fetch(`${API}/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        console.error("Delete failed");
+        return;
+      }
 
-    const note = notes.find(n => n.id === id);
-    if (note) {
-      setTrash(prev => [{ ...note, deletedAt: Date.now() }, ...prev]);
-      setNotes(prev => prev.filter(n => n.id !== id));
+      const note = notes.find(n => n.id === id);
+      if (note) {
+        setTrash(prev => [{ ...note, deletedAt: Date.now() }, ...prev]);
+        setNotes(prev => prev.filter(n => n.id !== id));
+      }
+    } catch (err) {
+      console.error("onDelete error:", err);
     }
   };
 
   // Restore
   const onRestore = async (id) => {
-    await fetch(`${API}/${id}/restore`, { method: "PUT" });
+    try {
+      const res = await fetch(`${API}/${id}/restore`, { method: "PUT" });
+      if (!res.ok) {
+        console.error("Restore failed");
+        return;
+      }
+      const payload = await res.json();
+      const restoredNote = payload.note || payload; // router returns {note: ...}
 
-    const note = trash.find(n => n.id === id);
-    if (note) {
-      setNotes(prev => [note, ...prev]);
+      const normalized = {
+        ...restoredNote,
+        tags: normalizeTags(restoredNote.tags),
+        updatedAt: toTimestamp(restoredNote.updatedAt),
+      };
+
+      setNotes(prev => [normalized, ...prev]);
       setTrash(prev => prev.filter(n => n.id !== id));
+    } catch (err) {
+      console.error("onRestore error:", err);
     }
   };
 
   // Permanent delete
   const onPermanentDelete = async (id) => {
-    await fetch(`${API}/${id}/permanent`, { method: "DELETE" });
-
-    setTrash(prev => prev.filter(n => n.id !== id));
+    try {
+      const res = await fetch(`${API}/${id}/permanent`, { method: "DELETE" });
+      if (!res.ok) {
+        console.error("Permanent delete failed");
+        return;
+      }
+      setTrash(prev => prev.filter(n => n.id !== id));
+    } catch (err) {
+      console.error("onPermanentDelete error:", err);
+    }
   };
 
   // Toggle pin
   const onTogglePin = async (id) => {
-    const note = notes.find(n => n.id === id);
-    if (!note) return;
+    try {
+      const note = notes.find(n => n.id === id);
+      if (!note) return;
 
-    const updated = { ...note, pinned: !note.pinned };
+      const payload = {
+        title: note.title,
+        content: note.content,
+        color: note.color,
+        category: note.category,
+        tags: note.tags,
+        pinned: !note.pinned,
+        favorite: note.favorite
+      };
 
-    await fetch(`${API}/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updated)
-    });
+      const res = await fetch(`${API}/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
 
-    setNotes(prev => prev.map(n => n.id === id ? updated : n));
+      if (!res.ok) {
+        console.error("Toggle pin failed");
+        return;
+      }
+
+      const updated = await res.json();
+      const normalized = {
+        ...updated,
+        tags: normalizeTags(updated.tags),
+        updatedAt: toTimestamp(updated.updatedAt)
+      };
+      setNotes(prev => prev.map(n => n.id === id ? normalized : n));
+    } catch (err) {
+      console.error("onTogglePin error:", err);
+    }
   };
 
   // Toggle favorite
   const onToggleFavorite = async (id) => {
-    const note = notes.find(n => n.id === id);
-    if (!note) return;
+    try {
+      const note = notes.find(n => n.id === id);
+      if (!note) return;
 
-    const updated = { ...note, favorite: !note.favorite };
+      const payload = {
+        title: note.title,
+        content: note.content,
+        color: note.color,
+        category: note.category,
+        tags: note.tags,
+        pinned: note.pinned,
+        favorite: !note.favorite
+      };
 
-    await fetch(`${API}/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updated)
-    });
+      const res = await fetch(`${API}/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
 
-    setNotes(prev => prev.map(n => n.id === id ? updated : n));
+      if (!res.ok) {
+        console.error("Toggle favorite failed");
+        return;
+      }
+
+      const updated = await res.json();
+      const normalized = {
+        ...updated,
+        tags: normalizeTags(updated.tags),
+        updatedAt: toTimestamp(updated.updatedAt)
+      };
+      setNotes(prev => prev.map(n => n.id === id ? normalized : n));
+    } catch (err) {
+      console.error("onToggleFavorite error:", err);
+    }
   };
 
-  // Categories
   const categories = useMemo(() => {
     const c = new Set();
     notes.forEach(n => n.category && c.add(n.category));
     return Array.from(c);
   }, [notes]);
 
-  // Filter + sort
   const filteredNotes = useMemo(() => {
     let list = activeFilter === "trash" ? trash : notes;
 
@@ -165,7 +292,7 @@ export default function NotesDashboard() {
       list = list.filter(n =>
         (n.title || "").toLowerCase().includes(q) ||
         (n.content || "").toLowerCase().includes(q) ||
-        (n.tags || []).some(t => t.toLowerCase().includes(q))
+        (n.tags || []).some(t => String(t).toLowerCase().includes(q))
       );
     }
 
@@ -181,7 +308,6 @@ export default function NotesDashboard() {
   return (
     <div className="notes-dashboard">
       <Sidebar
-      <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         activeFilter={activeFilter}
@@ -192,8 +318,6 @@ export default function NotesDashboard() {
       />
 
       <motion.div className="notes-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-
-        {/* Header */}
         <header className="notes-header">
           <div className="header-left">
             <motion.button className="menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
@@ -202,17 +326,14 @@ export default function NotesDashboard() {
             <h1>QuickNotes</h1>
           </div>
 
-
           <div className="header-right">
             <ThemeToggle />
             <motion.button className="add-btn" onClick={() => { setEditing(null); setShowForm(true); }}>
               +
             </motion.button>
           </div>
-          </div>
         </header>
 
-        {/* Search */}
         <div className="search-container">
           <input
             className="search-input"
@@ -223,7 +344,6 @@ export default function NotesDashboard() {
           />
         </div>
 
-        {/* Form Panel */}
         <AnimatePresence>
           {(showForm || editing) && (
             <motion.div className="form-panel">
@@ -238,37 +358,30 @@ export default function NotesDashboard() {
           )}
         </AnimatePresence>
 
-        {/* Notes Grid */}
         <div className="notes-grid">
           {filteredNotes.map(note => (
             <NoteCard
               key={note.id}
               note={note}
-
               onEdit={() => { setEditing(note); setShowForm(true); }}
-
-              onDelete={activeFilter === "trash"
-                ? onPermanentDelete
-                : onDelete}
-
+              onDelete={activeFilter === "trash" ? onPermanentDelete : onDelete}
               onTogglePin={onTogglePin}
               onToggleFavorite={onToggleFavorite}
               onRestore={activeFilter === "trash" ? onRestore : null}
-
+              onView={(n) => { setViewingNote(n); }}
               isTrash={activeFilter === "trash"}
             />
           ))}
         </div>
 
-        {/* View Note Modal */}
         <ViewNoteModal
           note={viewingNote}
           isOpen={!!viewingNote}
           onClose={() => setViewingNote(null)}
           onEdit={(n) => {
-            setViewingNote(null)
-            setEditing(n)
-            setShowForm(true)
+            setViewingNote(null);
+            setEditing(n);
+            setShowForm(true);
           }}
           onDelete={activeFilter === 'trash' ? onPermanentDelete : onDelete}
           onTogglePin={onTogglePin}

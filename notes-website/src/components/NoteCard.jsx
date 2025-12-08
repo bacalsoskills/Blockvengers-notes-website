@@ -29,7 +29,7 @@ export default function NoteCard({
 
   const getFirstLine = (content) => {
     if (!content) return ''
-    const lines = content.split('\n').filter(line => line.trim())
+    const lines = String(content).split('\n').filter(line => line.trim())
     return lines[0] || ''
   };
 
@@ -62,21 +62,14 @@ export default function NoteCard({
       )}
 
       <div className="note-header">
-        <motion.h3
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-        >
+        <motion.h3 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
           {title}
         </motion.h3>
         <div className="note-actions-top">
           {!isTrash && onTogglePin && (
             <motion.button
               className={`icon-btn-small ${note.pinned ? 'active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation()
-                onTogglePin(note.id)
-              }}
+              onClick={(e) => { e.stopPropagation(); onTogglePin(note.id); }}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               title={note.pinned ? "Unpin" : "Pin"}
@@ -89,10 +82,7 @@ export default function NoteCard({
           {!isTrash && onToggleFavorite && (
             <motion.button
               className={`icon-btn-small ${note.favorite ? 'active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation()
-                onToggleFavorite(note.id)
-              }}
+              onClick={(e) => { e.stopPropagation(); onToggleFavorite(note.id); }}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               title={note.favorite ? "Remove from favorites" : "Add to favorites"}
@@ -106,23 +96,13 @@ export default function NoteCard({
       </div>
 
       {firstLine && (
-        <motion.p
-          className="note-preview"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.15 }}
-        >
+        <motion.p className="note-preview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}>
           {firstLine.length > 100 ? firstLine.substring(0, 100) + '...' : firstLine}
         </motion.p>
       )}
 
       {note.category && (
-        <motion.div
-          className="note-category"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-        >
+        <motion.div className="note-category" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}>
           <span className="category-chip">{note.category}</span>
         </motion.div>
       )}
@@ -130,41 +110,19 @@ export default function NoteCard({
       {note.tags && note.tags.length > 0 && (
         <div className="note-tags">
           {note.tags.slice(0, 3).map((tag, idx) => (
-            <motion.span
-              key={idx}
-              className="tag-chip"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2 + idx * 0.05 }}
-            >
+            <motion.span key={idx} className="tag-chip" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 + idx * 0.05 }}>
               #{tag}
             </motion.span>
           ))}
-          {note.tags.length > 3 && (
-            <span className="tag-chip-more">+{note.tags.length - 3}</span>
-          )}
+          {note.tags.length > 3 && <span className="tag-chip-more">+{note.tags.length - 3}</span>}
         </div>
       )}
 
-      <motion.div 
-        className="note-footer"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-      >
+      <motion.div className="note-footer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
         <span className="note-date">{formatDate(note.updatedAt || note.deletedAt)}</span>
         <div className="note-actions">
           {!isTrash && onView && (
-            <motion.button
-              className="icon-btn-small view-btn"
-              onClick={(e) => {
-                e.stopPropagation()
-                onView(note)
-              }}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              title="View"
-            >
+            <motion.button className="icon-btn-small view-btn" onClick={(e) => { e.stopPropagation(); onView(note); }} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} title="View">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                 <circle cx="12" cy="12" r="3"></circle>
@@ -172,16 +130,7 @@ export default function NoteCard({
             </motion.button>
           )}
           {isTrash && onRestore && (
-            <motion.button
-              className="icon-btn-small restore-btn"
-              onClick={(e) => {
-                e.stopPropagation()
-                onRestore(note.id)
-              }}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              title="Restore"
-            >
+            <motion.button className="icon-btn-small restore-btn" onClick={(e) => { e.stopPropagation(); onRestore(note.id); }} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} title="Restore">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                 <polyline points="9 22 9 12 15 12 15 22"></polyline>
@@ -189,32 +138,14 @@ export default function NoteCard({
             </motion.button>
           )}
           {!isTrash && (
-            <motion.button
-              className="icon-btn-small"
-              onClick={(e) => {
-                e.stopPropagation()
-                onEdit(note)
-              }}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              title="Edit"
-            >
+            <motion.button className="icon-btn-small" onClick={(e) => { e.stopPropagation(); onEdit(note); }} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} title="Edit">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
               </svg>
             </motion.button>
           )}
-          <motion.button
-            className="icon-btn-small delete-btn"
-            onClick={(e) => {
-              e.stopPropagation()
-              onDelete(note.id)
-            }}
-            whileHover={{ scale: 1.1, backgroundColor: "rgba(239, 68, 68, 0.2)" }}
-            whileTap={{ scale: 0.9 }}
-            title={isTrash ? "Delete permanently" : "Delete"}
-          >
+          <motion.button className="icon-btn-small delete-btn" onClick={(e) => { e.stopPropagation(); onDelete(note.id); }} whileHover={{ scale: 1.1, backgroundColor: "rgba(239, 68, 68, 0.2)" }} whileTap={{ scale: 0.9 }} title={isTrash ? "Delete permanently" : "Delete"}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="m19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>

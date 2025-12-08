@@ -14,8 +14,9 @@ function getAutoSaveEnabled() {
 }
 
 export default function NoteForm({ initial, onSave, onCancel }) {
+  // Use content consistently (backend expects content)
   const [title, setTitle] = useState(initial?.title || '')
-  const [body, setBody] = useState(initial?.body || '')
+  const [content, setContent] = useState(initial?.content || '')
   const [color, setColor] = useState(initial?.color || 'yellow')
   const [category, setCategory] = useState(initial?.category || 'Personal')
   const [tags, setTags] = useState(initial?.tags || [])
@@ -25,31 +26,28 @@ export default function NoteForm({ initial, onSave, onCancel }) {
 
   useEffect(() => {
     setTitle(initial?.title || '')
-    setBody(initial?.body || '')
+    setContent(initial?.content || '')
     setColor(initial?.color || 'yellow')
     setCategory(initial?.category || 'Personal')
     setTags(initial?.tags || [])
     setHasChanges(false)
   }, [initial])
 
-  // Auto-save functionality
   useEffect(() => {
     if (!autoSaveEnabled || !hasChanges) return
-    
+
     const autoSaveTimer = setTimeout(() => {
-      if ((title.trim() || body.trim()) && hasChanges) {
+      if ((title.trim() || content.trim()) && hasChanges) {
         const autoSaveData = {
           title: title.trim(),
-          content: body.trim(),
+          content: content.trim(),
           color,
           category,
           tags: tags.filter(t => t.trim())
         }
-        
-        // Save to localStorage as draft
+
         localStorage.setItem('noteDraft', JSON.stringify(autoSaveData))
-        
-        // Show auto-save indicator briefly
+
         const indicator = document.createElement('div')
         indicator.textContent = '✓ Auto-saved'
         indicator.style.cssText = `
@@ -66,26 +64,25 @@ export default function NoteForm({ initial, onSave, onCancel }) {
           transition: opacity 0.3s;
         `
         document.body.appendChild(indicator)
-        
+
         setTimeout(() => indicator.style.opacity = '1', 10)
         setTimeout(() => {
           indicator.style.opacity = '0'
           setTimeout(() => document.body.removeChild(indicator), 300)
         }, 2000)
       }
-    }, 3000) // Auto-save after 3 seconds of inactivity
+    }, 3000)
 
     return () => clearTimeout(autoSaveTimer)
-  }, [title, body, color, category, tags, autoSaveEnabled, hasChanges])
+  }, [title, content, color, category, tags, autoSaveEnabled, hasChanges])
 
-  // Track changes
   const handleTitleChange = (e) => {
     setTitle(e.target.value)
     setHasChanges(true)
   }
 
-  const handleBodyChange = (e) => {
-    setBody(e.target.value)
+  const handleContentChange = (e) => {
+    setContent(e.target.value)
     setHasChanges(true)
   }
 
@@ -99,20 +96,19 @@ export default function NoteForm({ initial, onSave, onCancel }) {
     setHasChanges(true)
   }
 
-  // Inside NoteForm.jsx
+  const submit = (e) => {
+    e.preventDefault()
+    if (!title.trim() && !content.trim()) return
 
-const submit = (e) => {
-  e.preventDefault()
-  if (!title.trim() && !body.trim()) return
-  
-  onSave({ 
-    title: title.trim(), 
-    content: body.trim(), // CHANGE: Rename 'body' to 'content'
-    color,
-    category,
-    tags: tags.filter(t => t.trim())
-  })
-}
+    onSave({
+      id: initial?.id,
+      title: title.trim(),
+      content: content.trim(),
+      color,
+      category,
+      tags: tags.filter(t => t.trim())
+    })
+  }
 
   const addTag = (tag) => {
     const trimmedTag = tag.trim().toLowerCase()
@@ -143,23 +139,9 @@ const submit = (e) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <motion.div 
-        className="form-row"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1 }}
-      >
-        <input
-          value={title} 
-          onChange={handleTitleChange} 
-          placeholder="Note title"
-          className="form-input"
-        />
-        <select
-          value={color} 
-          onChange={handleColorChange}
-          className="form-select"
-        >
+      <motion.div className="form-row" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
+        <input value={title} onChange={handleTitleChange} placeholder="Note title" className="form-input" />
+        <select value={color} onChange={handleColorChange} className="form-select">
           <option value="yellow">Yellow</option>
           <option value="pink">Pink</option>
           <option value="blue">Blue</option>
@@ -167,59 +149,23 @@ const submit = (e) => {
         </select>
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.15 }}
-        className="form-row"
-      >
-        <select
-          value={category}
-          onChange={handleCategoryChange}
-          className="form-select"
-        >
-          {CATEGORIES.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="form-row">
+        <select value={category} onChange={handleCategoryChange} className="form-select">
+          {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
         </select>
       </motion.div>
 
-      <motion.textarea 
-        value={body} 
-        onChange={handleBodyChange} 
-        placeholder="Write your note..."
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className="form-textarea"
-      />
+      <motion.textarea value={content} onChange={handleContentChange} placeholder="Write your note..." initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="form-textarea" />
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.25 }}
-        className="tags-section"
-      >
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="tags-section">
         <div className="tags-input-container">
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={handleTagInputKeyDown}
-            placeholder="Add tags (press Enter)"
-            className="tags-input"
-          />
+          <input type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={handleTagInputKeyDown} placeholder="Add tags (press Enter)" className="tags-input" />
         </div>
+
         {tags.length > 0 && (
           <div className="tags-display">
             {tags.map((tag, idx) => (
-              <motion.span
-                key={idx}
-                className="tag-input-chip"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                onClick={() => removeTag(tag)}
-              >
+              <motion.span key={idx} className="tag-input-chip" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} onClick={() => removeTag(tag)}>
                 #{tag}
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -229,50 +175,26 @@ const submit = (e) => {
             ))}
           </div>
         )}
+
         {COMMON_TAGS.length > 0 && (
           <div className="common-tags">
-            {COMMON_TAGS
-              .filter(t => !tags.includes(t))
-              .slice(0, 4)
-              .map(tag => (
-                <motion.button
-                  key={tag}
-                  type="button"
-                  className="common-tag-btn"
-                  onClick={() => addTag(tag)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  + {tag}
-                </motion.button>
-              ))}
+            {COMMON_TAGS.filter(t => !tags.includes(t)).slice(0, 4).map(tag => (
+              <motion.button key={tag} type="button" className="common-tag-btn" onClick={() => addTag(tag)} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                + {tag}
+              </motion.button>
+            ))}
           </div>
         )}
       </motion.div>
 
-      <motion.div 
-        className="form-actions"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-      >
+      <motion.div className="form-actions" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
         {onCancel && (
-          <motion.button
-            type="button" 
-            onClick={onCancel}
-            className="cancel-btn"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
+          <motion.button type="button" onClick={onCancel} className="cancel-btn" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             Cancel
           </motion.button>
         )}
-        <motion.button 
-          type="submit" 
-          className="save-btn"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
+
+        <motion.button type="submit" className="save-btn" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
           {initial ? 'Update' : 'Save'}
         </motion.button>
       </motion.div>
