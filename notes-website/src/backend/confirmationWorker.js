@@ -3,7 +3,7 @@ import axios from 'axios'
 import pool from './db.js'
 import dotenv from 'dotenv'
 import path from 'path'
-dotenv.config({ path: path.resolve('../../.env') }) // <-- adjust to your project root
+dotenv.config({ path: path.resolve('../../.env') }) // adjust to your project root
 
 const BLOCKFROST_KEY = process.env.BLOCKFROST_KEY
 const API_BASE = 'https://cardano-preview.blockfrost.io/api/v0'
@@ -11,7 +11,7 @@ const API_BASE = 'https://cardano-preview.blockfrost.io/api/v0'
 async function checkPendingNotes() {
   try {
     const [pending] = await pool.query(
-      "SELECT * FROM notes WHERE status = 'pending' AND tx_hash IS NOT NULL"
+      "SELECT * FROM notes_blockchain WHERE status = 'pending' AND tx_hash IS NOT NULL"
     )
 
     for (const note of pending) {
@@ -21,9 +21,9 @@ async function checkPendingNotes() {
         })
 
         if (res.status === 200) {
-          // Update note to confirmed and update timestamp
+          // Update note to confirmed
           await pool.query(
-            'UPDATE notes SET status = ?, updated_at = NOW() WHERE id = ?',
+            'UPDATE notes_blockchain SET status = ?, updated_at = NOW() WHERE id = ?',
             ['confirmed', note.id]
           )
           console.log(`Note ${note.id} confirmed on-chain (tx ${note.tx_hash})`)
@@ -37,7 +37,13 @@ async function checkPendingNotes() {
             await pool.query(
               `INSERT INTO transactions (tx_hash, amount, sender, recipient, metadata, createdAt)
                VALUES (?, ?, ?, ?, ?, NOW())`,
-              [note.tx_hash, null, note.address || null, null, JSON.stringify({ action: note.action, note: note.content })]
+              [
+                note.tx_hash,
+                null,
+                note.address || null,
+                null,
+                JSON.stringify({ action: note.action, note: note.content })
+              ]
             )
             console.log(`Inserted transaction record for ${note.tx_hash}`)
           }
