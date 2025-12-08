@@ -39,12 +39,12 @@ function BlockchainDashboard() {
     if (window.cardano) setWallets(Object.keys(window.cardano))
   }, [])
 
-  // Load local notes from backend
+  // Load local notes from backend (notes_blockchain)
   const loadLocalNotes = async (address) => {
     try {
       const url = address
-        ? `${backendUrl}/api/notes?address=${encodeURIComponent(address)}`
-        : `${backendUrl}/api/notes`
+        ? `${backendUrl}/api/notes_blockchain?address=${encodeURIComponent(address)}`
+        : `${backendUrl}/api/notes_blockchain`
       const res = await fetch(url)
       if (!res.ok) throw new Error('Failed to load notes')
       const data = await res.json()
@@ -108,7 +108,7 @@ function BlockchainDashboard() {
 
     let noteRow
     try {
-      const res = await fetch(`${backendUrl}/api/notes`, {
+      const res = await fetch(`${backendUrl}/api/notes_blockchain`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -152,7 +152,7 @@ function BlockchainDashboard() {
       const txId = await blaze.provider.postTransactionToChain(signedTx)
 
       // Update local note with tx_hash
-      await fetch(`${backendUrl}/api/notes/${noteRow.id}`, {
+      await fetch(`${backendUrl}/api/notes_blockchain/${noteRow.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tx_hash: txId, status: 'pending' })
