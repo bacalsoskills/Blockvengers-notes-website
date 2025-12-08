@@ -5,6 +5,7 @@ import NoteForm from '../components/NoteForm.jsx'
 import NoteCard from '../components/NoteCard.jsx'
 import Sidebar from '../components/Sidebar.jsx'
 import ThemeToggle from '../components/ThemeToggle.jsx'
+import ViewNoteModal from '../components/ViewNoteModal.jsx'
 
 const API = "http://localhost:5000/api/notes";
 
@@ -46,6 +47,7 @@ export default function NotesDashboard() {
 };
 
 
+  // Redirect if no user
   useEffect(() => {
     loadData();
   }, []);
@@ -179,6 +181,7 @@ export default function NotesDashboard() {
   return (
     <div className="notes-dashboard">
       <Sidebar
+      <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         activeFilter={activeFilter}
@@ -199,11 +202,13 @@ export default function NotesDashboard() {
             <h1>QuickNotes</h1>
           </div>
 
+
           <div className="header-right">
             <ThemeToggle />
             <motion.button className="add-btn" onClick={() => { setEditing(null); setShowForm(true); }}>
               +
             </motion.button>
+          </div>
           </div>
         </header>
 
@@ -255,6 +260,20 @@ export default function NotesDashboard() {
           ))}
         </div>
 
+        {/* View Note Modal */}
+        <ViewNoteModal
+          note={viewingNote}
+          isOpen={!!viewingNote}
+          onClose={() => setViewingNote(null)}
+          onEdit={(n) => {
+            setViewingNote(null)
+            setEditing(n)
+            setShowForm(true)
+          }}
+          onDelete={activeFilter === 'trash' ? onPermanentDelete : onDelete}
+          onTogglePin={onTogglePin}
+          onToggleFavorite={onToggleFavorite}
+        />
       </motion.div>
     </div>
   );

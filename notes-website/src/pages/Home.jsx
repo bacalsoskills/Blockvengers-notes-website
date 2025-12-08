@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 
 function getSession() {
@@ -14,91 +13,64 @@ export default function Home() {
   const session = getSession()
 
   return (
-    <motion.section 
-      className="page home"
+    <motion.section
+      className="page home centered-hero"
+      role="main"
+      aria-label="Home"
+      style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', paddingTop: 28, paddingBottom: 28, minHeight: 'auto' }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.45 }}
     >
-      {session ? (
-        <>
-          <motion.h1
-            initial={{ opacity: 0, y: -30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, type: "spring", stiffness: 200, damping: 20 }}
-          >
-            Welcome back{session.email ? `, ${session.email}` : ''}
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, type: "spring", stiffness: 200, damping: 20 }}
-          >
-            Continue to your notes or check your profile.
-          </motion.p>
-          <motion.div 
-            className="cta"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            >
-              <Link className="btn primary" to="/notes">View Notes</Link>
-            </motion.div>
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            >
-              <Link className="btn outline" to="/profile">Profile</Link>
-            </motion.div>
-          </motion.div>
-        </>
-      ) : (
-        <>
-          <motion.h1
-            initial={{ opacity: 0, y: -30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, type: "spring", stiffness: 200, damping: 20 }}
-          >
-            Welcome to Notes
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, type: "spring", stiffness: 200, damping: 20 }}
-          >
-            A simple, personal, and fast notebook in your browser. Organize your thoughts with style.
-          </motion.p>
-          <motion.div 
-            className="cta"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            >
-              <Link className="btn primary" to="/login">Login</Link>
-            </motion.div>
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            >
-              <Link className="btn outline" to="/register">Register</Link>
-            </motion.div>
-          </motion.div>
-        </>
-      )}
+      <div className="hero-content">
+        <motion.h1
+          initial={{ opacity: 0, y: -18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08, type: 'spring', stiffness: 200, damping: 18 }}
+        >
+          {session ? `Welcome back${session.email ? `, ${session.email}` : ''}` : 'Welcome to Notes'}
+        </motion.h1>
+
+        <motion.p
+          className="hero-sub"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.16 }}
+        >
+          {session
+            ? 'Your personal notes are ready — quick, private, and reliable.'
+            : 'A simple, personal notebook inside your browser. Capture ideas quickly and find them later.'}
+        </motion.p>
+
+        <motion.div
+          className="home-features"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.26 }}
+        >
+          <div className="feature input-card" aria-hidden="true">
+            <div className="icon">📝</div>
+            <h4>Fast capture</h4>
+            <p className="muted">Save notes instantly without any delay.</p>
+          </div>
+
+          <div className="feature input-card" aria-hidden="true">
+            <div className="icon">🔒</div>
+            <h4>Local-first</h4>
+            <p className="muted">Your notes are safely stored in the database.</p>
+          </div>
+
+          <div className="feature input-card" aria-hidden="true">
+            <div className="icon">⚡</div>
+            <h4>Responsive</h4>
+            <p className="muted">Always works smoothly when you need it.</p>
+          </div>
+        </motion.div>
+
+        <motion.p className="muted" style={{ marginTop: 16 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.36 }}>
+          {session ? 'Browse your notes from the Notes menu above.' : 'Use the navigation to Login or Register.'}
+        </motion.p>
+      </div>
     </motion.section>
   )
 }
-
-

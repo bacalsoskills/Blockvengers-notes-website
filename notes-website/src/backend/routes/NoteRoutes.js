@@ -54,12 +54,13 @@ router.post("/", async (req, res) => {
     const [rows] = await pool.query("SELECT * FROM notes WHERE id = ?", [result.insertId]);
     res.status(201).json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Create note error:', err)
+    res.status(500).json({ error: err.message })
   }
 });
 
-// Update existing note
-router.put("/:id", async (req, res) => {
+// Get notes (optionally filter by address)
+router.get('/', async (req, res) => {
   try {
     const { title, content, body, color, category, tags, pinned, favorite } = req.body;
     
@@ -79,7 +80,8 @@ router.put("/:id", async (req, res) => {
     const [rows] = await pool.query("SELECT * FROM notes WHERE id = ?", [req.params.id]);
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Get notes error:', err)
+    res.status(500).json({ error: err.message })
   }
 });
 
@@ -109,8 +111,9 @@ router.delete("/:id/permanent", async (req, res) => {
     await pool.query("DELETE FROM notes WHERE id = ?", [req.params.id]);
     res.json({ message: "Note permanently deleted" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Update note error:', err)
+    res.status(500).json({ error: err.message })
   }
-});
+})
 
 export default router;

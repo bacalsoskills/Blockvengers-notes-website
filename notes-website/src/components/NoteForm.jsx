@@ -4,6 +4,15 @@ import { motion } from 'framer-motion'
 const CATEGORIES = ['Personal', 'Work', 'School', 'Shopping', 'Ideas', 'Travel']
 const COMMON_TAGS = ['important', 'todo', 'reminder', 'meeting', 'project', 'homework']
 
+function getAutoSaveEnabled() {
+  try {
+    const enabled = localStorage.getItem('autoSaveEnabled')
+    return enabled ? JSON.parse(enabled) : true
+  } catch {
+    return true
+  }
+}
+
 export default function NoteForm({ initial, onSave, onCancel }) {
   const [title, setTitle] = useState(initial?.title || '')
   const [body, setBody] = useState(initial?.body || '')
@@ -11,6 +20,8 @@ export default function NoteForm({ initial, onSave, onCancel }) {
   const [category, setCategory] = useState(initial?.category || 'Personal')
   const [tags, setTags] = useState(initial?.tags || [])
   const [tagInput, setTagInput] = useState('')
+  const [hasChanges, setHasChanges] = useState(false)
+  const [autoSaveEnabled] = useState(getAutoSaveEnabled())
 
   useEffect(() => {
     setTitle(initial?.title || '')
@@ -18,7 +29,75 @@ export default function NoteForm({ initial, onSave, onCancel }) {
     setColor(initial?.color || 'yellow')
     setCategory(initial?.category || 'Personal')
     setTags(initial?.tags || [])
+    setHasChanges(false)
   }, [initial])
+
+  // Auto-save functionality
+  useEffect(() => {
+    if (!autoSaveEnabled || !hasChanges) return
+    
+    const autoSaveTimer = setTimeout(() => {
+      if ((title.trim() || body.trim()) && hasChanges) {
+        const autoSaveData = {
+          title: title.trim(),
+          content: body.trim(),
+          color,
+          category,
+          tags: tags.filter(t => t.trim())
+        }
+        
+        // Save to localStorage as draft
+        localStorage.setItem('noteDraft', JSON.stringify(autoSaveData))
+        
+        // Show auto-save indicator briefly
+        const indicator = document.createElement('div')
+        indicator.textContent = '✓ Auto-saved'
+        indicator.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: #10b981;
+          color: white;
+          padding: 8px 16px;
+          border-radius: 6px;
+          z-index: 1000;
+          font-size: 14px;
+          opacity: 0;
+          transition: opacity 0.3s;
+        `
+        document.body.appendChild(indicator)
+        
+        setTimeout(() => indicator.style.opacity = '1', 10)
+        setTimeout(() => {
+          indicator.style.opacity = '0'
+          setTimeout(() => document.body.removeChild(indicator), 300)
+        }, 2000)
+      }
+    }, 3000) // Auto-save after 3 seconds of inactivity
+
+    return () => clearTimeout(autoSaveTimer)
+  }, [title, body, color, category, tags, autoSaveEnabled, hasChanges])
+
+  // Track changes
+  const handleTitleChange = (e) => {
+    setTitle(e.target.value)
+    setHasChanges(true)
+  }
+
+  const handleBodyChange = (e) => {
+    setBody(e.target.value)
+    setHasChanges(true)
+  }
+
+  const handleColorChange = (e) => {
+    setColor(e.target.value)
+    setHasChanges(true)
+  }
+
+  const handleCategoryChange = (e) => {
+    setCategory(e.target.value)
+    setHasChanges(true)
+  }
 
   // Inside NoteForm.jsx
 
@@ -40,11 +119,13 @@ const submit = (e) => {
     if (trimmedTag && !tags.includes(trimmedTag) && tags.length < 5) {
       setTags([...tags, trimmedTag])
       setTagInput('')
+      setHasChanges(true)
     }
   }
 
   const removeTag = (tagToRemove) => {
     setTags(tags.filter(t => t !== tagToRemove))
+    setHasChanges(true)
   }
 
   const handleTagInputKeyDown = (e) => {
@@ -70,13 +151,13 @@ const submit = (e) => {
       >
         <input
           value={title} 
-          onChange={(e) => setTitle(e.target.value)} 
+          onChange={handleTitleChange} 
           placeholder="Note title"
           className="form-input"
         />
         <select
           value={color} 
-          onChange={(e) => setColor(e.target.value)}
+          onChange={handleColorChange}
           className="form-select"
         >
           <option value="yellow">Yellow</option>
@@ -94,7 +175,7 @@ const submit = (e) => {
       >
         <select
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          onChange={handleCategoryChange}
           className="form-select"
         >
           {CATEGORIES.map(cat => (
@@ -105,7 +186,7 @@ const submit = (e) => {
 
       <motion.textarea 
         value={body} 
-        onChange={(e) => setBody(e.target.value)} 
+        onChange={handleBodyChange} 
         placeholder="Write your note..."
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

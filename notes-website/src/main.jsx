@@ -8,7 +8,10 @@ import Home from './pages/Home.jsx'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import NotesDashboard from './pages/NotesDashboard.jsx'
+import BlockchainDashboard from './pages/BlockchainDashboard.jsx'
 import Profile from './pages/Profile.jsx'
+import { Buffer } from 'buffer'
+window.Buffer = Buffer
 
 const router = createBrowserRouter([
   {
@@ -19,6 +22,7 @@ const router = createBrowserRouter([
       { path: 'login', element: <Login /> },
       { path: 'register', element: <Register /> },
       { path: 'notes', element: <NotesDashboard /> },
+      { path: 'blockchain', element: <BlockchainDashboard /> },
       { path: 'profile', element: <Profile /> },
     ],
   },
