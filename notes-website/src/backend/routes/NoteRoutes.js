@@ -3,22 +3,22 @@ import pool from "../db.js";
 
 const router = express.Router();
 
-// Get all notes
+// Get all non-deleted notes
 router.get("/", async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM notes ORDER BY updatedAt DESC");
+    // We filter out soft-deleted notes (where deletedAt is NOT NULL)
+    const [rows] = await pool.query("SELECT * FROM notes WHERE deletedAt IS NULL ORDER BY pinned DESC, updatedAt DESC");
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Get single note
-router.get("/:id", async (req, res) => {
+// Get trash (deleted) notes
+router.get("/trash", async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM notes WHERE id = ?", [req.params.id]);
-    if (rows.length === 0) return res.status(404).json({ message: "Note not found" });
-    res.json(rows[0]);
+    const [rows] = await pool.query("SELECT * FROM notes WHERE deletedAt IS NOT NULL ORDER BY deletedAt DESC");
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -27,68 +27,87 @@ router.get("/:id", async (req, res) => {
 // Create a new note
 router.post("/", async (req, res) => {
   try {
-    const { title, content, color } = req.body || {};
-
+    // Frontend sends 'body', DB expects 'content'. We accept both.
+    const { title, content, body, color, category, tags, pinned, favorite } = req.body || {};
+    
+    // Fix: Prioritize 'content', fallback to 'body'
+    const finalContent = content || body || "";
+    
     const allowedColors = new Set(["yellow", "pink", "blue", "green"]);
 
-    if ((title == null || String(title).trim() === "") && (content == null || String(content).trim() === "")) {
+    if ((!title || String(title).trim() === "") && (!finalContent || String(finalContent).trim() === "")) {
       return res.status(400).json({ message: "Title or content is required" });
     }
 
-    const normalizedTitle = title != null ? String(title).trim() : null;
-    const normalizedContent = content != null ? String(content).trim() : null;
+    const normalizedTitle = title ? String(title).trim() : null;
+    const normalizedContent = String(finalContent).trim();
     const normalizedColor = allowedColors.has(color) ? color : "yellow";
+    
+    // Stringify tags array for JSON storage
+    const tagsJson = tags ? JSON.stringify(tags) : "[]";
 
     const [result] = await pool.query(
-      "INSERT INTO notes (title, content, color) VALUES (?, ?, ?)",
-      [normalizedTitle, normalizedContent, normalizedColor]
+      "INSERT INTO notes (title, content, color, category, tags, pinned, favorite) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [normalizedTitle, normalizedContent, normalizedColor, category, tagsJson, pinned || false, favorite || false]
     );
 
     const [rows] = await pool.query("SELECT * FROM notes WHERE id = ?", [result.insertId]);
-    const created = rows && rows[0] ? rows[0] : {
-      id: result.insertId,
-      title: normalizedTitle,
-      content: normalizedContent,
-      color: normalizedColor,
-      updatedAt: new Date()
-    };
-
-    res.status(201).json(created);
+    res.status(201).json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
-
 
 // Update existing note
 router.put("/:id", async (req, res) => {
   try {
-    const { title, content, color } = req.body;
+    const { title, content, body, color, category, tags, pinned, favorite } = req.body;
     
-    // Update note in database
+    const finalContent = content || body;
+    const tagsJson = tags ? JSON.stringify(tags) : undefined; // undefined keeps existing if we build dynamic query, but simple update below:
+
+    // This query assumes you send ALL fields on update. 
     await pool.query(
-      "UPDATE notes SET title = ?, content = ?, color = ?, updatedAt = NOW() WHERE id = ?",
-      [title, content, color, req.params.id]
+      `UPDATE notes SET 
+       title = ?, content = ?, color = ?, category = ?, tags = ?, pinned = ?, favorite = ?, 
+       updatedAt = NOW() 
+       WHERE id = ?`,
+      [title, finalContent, color, category, tagsJson, pinned, favorite, req.params.id]
     );
     
-    // Return updated note data
-    res.json({ 
-      id: req.params.id, 
-      title, 
-      content, 
-      color, 
-      updatedAt: new Date() 
-    });
+    // Fetch the updated note to return clean data
+    const [rows] = await pool.query("SELECT * FROM notes WHERE id = ?", [req.params.id]);
+    res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
- 
 
+// Soft Delete (Move to Trash)
 router.delete("/:id", async (req, res) => {
   try {
-    await pool.query("DELETE FROM notes WHERE id=?", [req.params.id]);
-    res.json({ message: "Note deleted" });
+    await pool.query("UPDATE notes SET deletedAt = NOW() WHERE id = ?", [req.params.id]);
+    res.json({ message: "Note moved to trash" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Restore from Trash
+router.put("/:id/restore", async (req, res) => {
+  try {
+    await pool.query("UPDATE notes SET deletedAt = NULL WHERE id = ?", [req.params.id]);
+    res.json({ message: "Note restored" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Hard Delete (Permanent)
+router.delete("/:id/permanent", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM notes WHERE id = ?", [req.params.id]);
+    res.json({ message: "Note permanently deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

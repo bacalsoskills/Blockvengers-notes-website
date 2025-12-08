@@ -20,17 +20,20 @@ export default function NoteForm({ initial, onSave, onCancel }) {
     setTags(initial?.tags || [])
   }, [initial])
 
-  const submit = (e) => {
-    e.preventDefault()
-    if (!title.trim() && !body.trim()) return
-    onSave({ 
-      title: title.trim(), 
-      body: body.trim(), 
-      color,
-      category,
-      tags: tags.filter(t => t.trim())
-    })
-  }
+  // Inside NoteForm.jsx
+
+const submit = (e) => {
+  e.preventDefault()
+  if (!title.trim() && !body.trim()) return
+  
+  onSave({ 
+    title: title.trim(), 
+    content: body.trim(), // CHANGE: Rename 'body' to 'content'
+    color,
+    category,
+    tags: tags.filter(t => t.trim())
+  })
+}
 
   const addTag = (tag) => {
     const trimmedTag = tag.trim().toLowerCase()

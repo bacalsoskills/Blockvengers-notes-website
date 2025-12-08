@@ -6,170 +6,179 @@ import NoteCard from '../components/NoteCard.jsx'
 import Sidebar from '../components/Sidebar.jsx'
 import ThemeToggle from '../components/ThemeToggle.jsx'
 
-function getSession() {
-  try { return JSON.parse(localStorage.getItem('session')) } catch { return null }
-}
-
-function loadNotes(email) {
-  try { return JSON.parse(localStorage.getItem(`notes:${email}`) || '[]') } catch { return [] }
-}
-
-function saveNotes(email, notes) {
-  localStorage.setItem(`notes:${email}`, JSON.stringify(notes))
-}
-
-function loadTrash(email) {
-  try { return JSON.parse(localStorage.getItem(`trash:${email}`) || '[]') } catch { return [] }
-}
-
-function saveTrash(email, trash) {
-  localStorage.setItem(`trash:${email}`, JSON.stringify(trash))
-}
+const API = "http://localhost:5000/api/notes";
 
 export default function NotesDashboard() {
-  const navigate = useNavigate()
-  const session = getSession()
-  const userEmail = session?.email
+  const navigate = useNavigate();
 
-  const [notes, setNotes] = useState(() => userEmail ? loadNotes(userEmail) : [])
-  const [trash, setTrash] = useState(() => userEmail ? loadTrash(userEmail) : [])
-  const [editing, setEditing] = useState(null)
-  const [showForm, setShowForm] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [activeFilter, setActiveFilter] = useState('all') // all, favorites, pinned, trash
-  const [selectedCategory, setSelectedCategory] = useState(null)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [notes, setNotes] = useState([]);
+  const [trash, setTrash] = useState([]);
+  const [editing, setEditing] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Load notes + trash from backend
+  const loadData = async () => {
+  const resNotes = await fetch(API);
+  const resTrash = await fetch(`${API}/trash`);
+
+  const dataNotes = await resNotes.json();
+  const dataTrash = await resTrash.json();
+
+  // Parse tags + convert timestamps to numbers
+  const parsedNotes = dataNotes.map(n => ({
+    ...n,
+    tags: n.tags ? JSON.parse(n.tags) : [],
+    updatedAt: n.updatedAt ? new Date(n.updatedAt).getTime() : 0
+  }));
+
+  const parsedTrash = dataTrash.map(n => ({
+    ...n,
+    tags: n.tags ? JSON.parse(n.tags) : [],
+    deletedAt: n.deletedAt ? new Date(n.deletedAt).getTime() : 0
+  }));
+
+  setNotes(parsedNotes);
+  setTrash(parsedTrash);
+};
+
 
   useEffect(() => {
-    if (!userEmail) navigate('/login')
-  }, [userEmail, navigate])
+    loadData();
+  }, []);
 
-  useEffect(() => {
-    if (userEmail) {
-      saveNotes(userEmail, notes)
-      saveTrash(userEmail, trash)
-    }
-  }, [userEmail, notes, trash])
+  // Create note (POST)
+  const onCreate = async (data) => {
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+    const newNote = await res.json();
 
-  const onCreate = (data) => {
-    const newNote = { 
-      id: crypto.randomUUID(), 
-      ...data, 
-      createdAt: Date.now(), 
-      updatedAt: Date.now(),
-      pinned: false,
-      favorite: false,
-      category: data.category || 'Personal',
-      tags: data.tags || []
-    }
-    setNotes(prev => [newNote, ...prev])
-    setShowForm(false)
-  }
+    newNote.tags = newNote.tags ? JSON.parse(newNote.tags) : [];
 
-  const onEditSave = (data) => {
-    if (!editing) return
-    setNotes(prev => prev.map(n => n.id === editing.id ? { 
-      ...n, 
-      ...data, 
-      updatedAt: Date.now(),
-      category: data.category || n.category || 'Personal',
-      tags: data.tags || n.tags || []
-    } : n))
-    setEditing(null)
-    setShowForm(false)
-  }
+    setNotes(prev => [newNote, ...prev]);
+    setShowForm(false);
+  };
 
-  const onDelete = (id) => {
-    const note = notes.find(n => n.id === id)
+  // Save edits (PUT)
+  const onEditSave = async (data) => {
+    const res = await fetch(`${API}/${editing.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+
+    const updated = await res.json();
+    updated.tags = updated.tags ? JSON.parse(updated.tags) : [];
+
+    setNotes(prev => prev.map(n => n.id === editing.id ? updated : n));
+    setEditing(null);
+    setShowForm(false);
+  };
+
+  // Soft delete -> Move to trash
+  const onDelete = async (id) => {
+    await fetch(`${API}/${id}`, { method: "DELETE" });
+
+    const note = notes.find(n => n.id === id);
     if (note) {
-      setTrash(prev => [...prev, { ...note, deletedAt: Date.now() }])
-      setNotes(prev => prev.filter(n => n.id !== id))
+      setTrash(prev => [{ ...note, deletedAt: Date.now() }, ...prev]);
+      setNotes(prev => prev.filter(n => n.id !== id));
     }
-  }
+  };
 
-  const onTogglePin = (id) => {
-    setNotes(prev => prev.map(n => n.id === id ? { ...n, pinned: !n.pinned, updatedAt: Date.now() } : n))
-  }
+  // Restore
+  const onRestore = async (id) => {
+    await fetch(`${API}/${id}/restore`, { method: "PUT" });
 
-  const onToggleFavorite = (id) => {
-    setNotes(prev => prev.map(n => n.id === id ? { ...n, favorite: !n.favorite, updatedAt: Date.now() } : n))
-  }
-
-  const onRestore = (id) => {
-    const note = trash.find(n => n.id === id)
+    const note = trash.find(n => n.id === id);
     if (note) {
-      const { deletedAt, ...restoredNote } = note
-      setNotes(prev => [restoredNote, ...prev])
-      setTrash(prev => prev.filter(n => n.id !== id))
+      setNotes(prev => [note, ...prev]);
+      setTrash(prev => prev.filter(n => n.id !== id));
     }
-  }
+  };
 
-  const onPermanentDelete = (id) => {
-    setTrash(prev => prev.filter(n => n.id !== id))
-  }
+  // Permanent delete
+  const onPermanentDelete = async (id) => {
+    await fetch(`${API}/${id}/permanent`, { method: "DELETE" });
 
-  // Get all categories from notes
+    setTrash(prev => prev.filter(n => n.id !== id));
+  };
+
+  // Toggle pin
+  const onTogglePin = async (id) => {
+    const note = notes.find(n => n.id === id);
+    if (!note) return;
+
+    const updated = { ...note, pinned: !note.pinned };
+
+    await fetch(`${API}/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updated)
+    });
+
+    setNotes(prev => prev.map(n => n.id === id ? updated : n));
+  };
+
+  // Toggle favorite
+  const onToggleFavorite = async (id) => {
+    const note = notes.find(n => n.id === id);
+    if (!note) return;
+
+    const updated = { ...note, favorite: !note.favorite };
+
+    await fetch(`${API}/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updated)
+    });
+
+    setNotes(prev => prev.map(n => n.id === id ? updated : n));
+  };
+
+  // Categories
   const categories = useMemo(() => {
-    const cats = new Set()
-    notes.forEach(note => {
-      if (note.category) cats.add(note.category)
-    })
-    return Array.from(cats)
-  }, [notes])
+    const c = new Set();
+    notes.forEach(n => n.category && c.add(n.category));
+    return Array.from(c);
+  }, [notes]);
 
-  // Filter and sort notes
+  // Filter + sort
   const filteredNotes = useMemo(() => {
-    let filtered = activeFilter === 'trash' ? trash : notes
+    let list = activeFilter === "trash" ? trash : notes;
 
-    // Apply filter
-    if (activeFilter === 'favorites') {
-      filtered = filtered.filter(n => n.favorite)
-    } else if (activeFilter === 'pinned') {
-      filtered = filtered.filter(n => n.pinned)
-    }
+    if (activeFilter === "favorites") list = list.filter(n => n.favorite);
+    else if (activeFilter === "pinned") list = list.filter(n => n.pinned);
 
-    // Apply category filter
-    if (selectedCategory) {
-      filtered = filtered.filter(n => n.category === selectedCategory)
-    }
+    if (selectedCategory) list = list.filter(n => n.category === selectedCategory);
 
-    // Apply search
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(n => 
-        (n.title || '').toLowerCase().includes(query) ||
-        (n.body || n.content || '').toLowerCase().includes(query) ||
-        (n.tags || []).some(tag => tag.toLowerCase().includes(query))
-      )
+      const q = searchQuery.toLowerCase();
+      list = list.filter(n =>
+        (n.title || "").toLowerCase().includes(q) ||
+        (n.content || "").toLowerCase().includes(q) ||
+        (n.tags || []).some(t => t.toLowerCase().includes(q))
+      );
     }
 
-    // Sort: pinned first, then by updatedAt
-    if (activeFilter !== 'trash') {
-      filtered = filtered.sort((a, b) => {
-        if (a.pinned && !b.pinned) return -1
-        if (!a.pinned && b.pinned) return 1
-        return (b.updatedAt || 0) - (a.updatedAt || 0)
-      })
+    if (activeFilter !== "trash") {
+      list.sort((a, b) => (b.pinned - a.pinned) || (b.updatedAt - a.updatedAt));
     } else {
-      filtered = filtered.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0))
+      list.sort((a, b) => (b.deletedAt - a.deletedAt));
     }
 
-    return filtered
-  }, [notes, trash, activeFilter, selectedCategory, searchQuery])
-
-  const handleNewNote = () => {
-    setEditing(null)
-    setShowForm(true)
-  }
-
-  const handleCancelForm = () => {
-    setShowForm(false)
-    setEditing(null)
-  }
+    return list;
+  }, [notes, trash, activeFilter, selectedCategory, searchQuery]);
 
   return (
     <div className="notes-dashboard">
-      <Sidebar 
+      <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         activeFilter={activeFilter}
@@ -179,177 +188,74 @@ export default function NotesDashboard() {
         onCategorySelect={setSelectedCategory}
       />
 
-      <motion.div 
-        className="notes-content"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.4 }}
-      >
+      <motion.div className="notes-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+
         {/* Header */}
         <header className="notes-header">
           <div className="header-left">
-            <motion.button
-              className="menu-btn"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="3" y1="12" x2="21" y2="12"></line>
-                <line x1="3" y1="6" x2="21" y2="6"></line>
-                <line x1="3" y1="18" x2="21" y2="18"></line>
-              </svg>
+            <motion.button className="menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
+              ☰
             </motion.button>
-            <motion.h1
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              QuickNotes
-            </motion.h1>
+            <h1>QuickNotes</h1>
           </div>
+
           <div className="header-right">
             <ThemeToggle />
-            <motion.button
-              className="add-btn"
-              onClick={handleNewNote}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
+            <motion.button className="add-btn" onClick={() => { setEditing(null); setShowForm(true); }}>
+              +
             </motion.button>
-        </div>
+          </div>
         </header>
 
-        {/* Search Bar */}
-        <motion.div 
-          className="search-container"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <div className="search-box">
-            <svg className="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <path d="m21 21-4.35-4.35"></path>
-            </svg>
-            <input
-              type="text"
-              placeholder="Search notes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="search-input"
-            />
-            {searchQuery && (
-              <motion.button
-                className="clear-search"
-                onClick={() => setSearchQuery('')}
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </motion.button>
-            )}
+        {/* Search */}
+        <div className="search-container">
+          <input
+            className="search-input"
+            type="text"
+            placeholder="Search notes..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
         </div>
-        </motion.div>
 
         {/* Form Panel */}
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           {(showForm || editing) && (
-            <motion.div 
-              key={editing ? 'edit' : 'create'}
-              className="form-panel"
-              initial={{ opacity: 0, y: -20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.95 }}
-              transition={{ duration: 0.3 }}
-            >
-              <h3>{editing ? 'Edit note' : 'Create a note'}</h3>
-              <NoteForm 
-                initial={editing} 
-                onSave={editing ? onEditSave : onCreate} 
-                onCancel={handleCancelForm}
+            <motion.div className="form-panel">
+              <h3>{editing ? "Edit note" : "Create a note"}</h3>
+
+              <NoteForm
+                initial={editing}
+                onSave={editing ? onEditSave : onCreate}
+                onCancel={() => { setEditing(null); setShowForm(false); }}
               />
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Notes Grid */}
-        {filteredNotes.length === 0 ? (
-          <motion.div 
-            className="empty-state"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            {searchQuery ? (
-              <>
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <circle cx="11" cy="11" r="8"></circle>
-                  <path d="m21 21-4.35-4.35"></path>
-                </svg>
-                <p>No notes found for "{searchQuery}"</p>
-              </>
-            ) : activeFilter === 'trash' ? (
-              <>
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="m19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-                <p>Trash is empty</p>
-              </>
-            ) : (
-              <>
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                  <polyline points="14 2 14 8 20 8"></polyline>
-                  <line x1="16" y1="13" x2="8" y2="13"></line>
-                  <line x1="16" y1="17" x2="8" y2="17"></line>
-                  <polyline points="10 9 9 9 8 9"></polyline>
-                </svg>
-                <p>No notes yet. Create your first note!</p>
-              </>
-            )}
-          </motion.div>
-        ) : (
-          <motion.div 
-            className="notes-grid"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            <AnimatePresence mode="popLayout">
-              {filteredNotes.map(note => (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  onEdit={(n) => {
-                    setEditing(n)
-                    setShowForm(true)
-                  }}
-                  onDelete={activeFilter === 'trash' ? onPermanentDelete : onDelete}
-                  onTogglePin={onTogglePin}
-                  onToggleFavorite={onToggleFavorite}
-                  onRestore={activeFilter === 'trash' ? onRestore : null}
-                  isTrash={activeFilter === 'trash'}
-                />
-              ))}
-            </AnimatePresence>
-          </motion.div>
-        )}
+        <div className="notes-grid">
+          {filteredNotes.map(note => (
+            <NoteCard
+              key={note.id}
+              note={note}
+
+              onEdit={() => { setEditing(note); setShowForm(true); }}
+
+              onDelete={activeFilter === "trash"
+                ? onPermanentDelete
+                : onDelete}
+
+              onTogglePin={onTogglePin}
+              onToggleFavorite={onToggleFavorite}
+              onRestore={activeFilter === "trash" ? onRestore : null}
+
+              isTrash={activeFilter === "trash"}
+            />
+          ))}
+        </div>
 
       </motion.div>
-        </div>
-  )
+    </div>
+  );
 }
