@@ -43,6 +43,29 @@ export default function TransactionForm({ onTransactionComplete, onCancel }) {
         message.trim()
       )
       
+      // Create a note for this transaction
+      try {
+        const noteTitle = `Transaction to ${recipientAddress.trim().substring(0, 20)}...`
+        const noteContent = `Amount: ${amount} ADA\nRecipient: ${recipientAddress.trim()}\n${message.trim() ? `Message: ${message.trim()}\n` : ''}Transaction Hash: ${transaction.hash}\nStatus: ${transaction.status}\nDate: ${new Date(transaction.timestamp).toLocaleString()}`
+        
+        await fetch('http://localhost:5000/api/notes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: noteTitle,
+            content: noteContent,
+            color: 'blue',
+            category: 'Blockchain Transaction',
+            tags: JSON.stringify(['transaction', 'blockchain', 'ADA']),
+            pinned: false,
+            favorite: false
+          })
+        })
+      } catch (noteError) {
+        console.error('Failed to create note for transaction:', noteError)
+        // Don't fail the transaction if note creation fails
+      }
+      
       onTransactionComplete?.(transaction)
     } catch (error) {
       setErrors({ submit: error.message })
