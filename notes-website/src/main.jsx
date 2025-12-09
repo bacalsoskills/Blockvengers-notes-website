@@ -5,8 +5,6 @@ import './index.css'
 import './styles/main.css'
 import App from './App.jsx'
 import Home from './pages/Home.jsx'
-import Login from './pages/Login.jsx'
-import Register from './pages/Register.jsx'
 import NotesDashboard from './pages/NotesDashboard.jsx'
 import BlockchainDashboard from './pages/BlockchainDashboard.jsx'
 import Profile from './pages/Profile.jsx'
@@ -19,8 +17,6 @@ const router = createBrowserRouter([
     element: <App />,
     children: [
       { index: true, element: <Home /> },
-      { path: 'login', element: <Login /> },
-      { path: 'register', element: <Register /> },
       { path: 'notes', element: <NotesDashboard /> },
       { path: 'blockchain', element: <BlockchainDashboard /> },
       { path: 'profile', element: <Profile /> },
