@@ -7,7 +7,7 @@ import Sidebar from '../components/Sidebar.jsx'
 import ThemeToggle from '../components/ThemeToggle.jsx'
 import ViewNoteModal from '../components/ViewNoteModal.jsx'
 
-const API = "http://localhost:5000/api/notes";
+const API = "/api/notes";
 
 function normalizeTags(t) {
   if (!t) return [];
