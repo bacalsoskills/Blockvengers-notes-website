@@ -66,10 +66,6 @@ export default function Home() {
             <p className="muted">Always works smoothly when you need it.</p>
           </div>
         </motion.div>
-
-        <motion.p className="muted" style={{ marginTop: 16 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.36 }}>
-          {session ? 'Browse your notes from the Notes menu above.' : 'Use the navigation to Login or Register.'}
-        </motion.p>
       </div>
     </motion.section>
   )
