@@ -16,7 +16,7 @@ export default function Navbar() {
 
   const handleLogout = () => {
     localStorage.removeItem('session')
-    navigate('/login')
+    navigate('/')
   }
 
   return (
@@ -43,12 +43,10 @@ export default function Navbar() {
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <NavLink to="/blockchain">Blockchain</NavLink>
           </motion.div>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <NavLink to="/profile">Profile</NavLink>
+          </motion.div>
           {session && (
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <NavLink to="/profile">Profile</NavLink>
-            </motion.div>
-          )}
-          {session ? (
             <motion.button
               className="link-btn" 
               onClick={handleLogout}
@@ -58,15 +56,6 @@ export default function Navbar() {
             >
               Logout
             </motion.button>
-          ) : (
-            <>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <NavLink to="/login">Login</NavLink>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <NavLink to="/register">Register</NavLink>
-              </motion.div>
-            </>
           )}
         </div>
       </div>
